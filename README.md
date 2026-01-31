@@ -1,8 +1,10 @@
-# AI Learning Assistant
+# AI Learning & Developer Productivity Assistant
 
-A comprehensive cloud-native learning platform built on AWS that provides intelligent content processing, interactive learning tools, and multilingual support for students and developers.
+**Hackathon Submission for AWS AI Bharat 2026**
 
-## Features
+A comprehensive cloud-native learning platform built on AWS that provides intelligent content processing, interactive learning tools, and multilingual support for students and developers. This project showcases an AI-powered assistant that enhances student learning and developer workflows.
+
+## 🎯 Features
 
 - **Content Processing**: Upload and process text, PDFs, videos, and audio files with AI-powered summarization
 - **Interactive Learning**: Generate flashcards and quizzes with spaced repetition algorithms
@@ -10,12 +12,13 @@ A comprehensive cloud-native learning platform built on AWS that provides intell
 - **Multilingual Support**: Support for Indian languages (Hindi, Tamil, Telugu, Bengali, and more)
 - **Voice Interface**: Speech-to-text and text-to-speech capabilities
 - **Secure & Scalable**: Built on AWS with enterprise-grade security
+- **Modern UI**: Award-winning cyan dark theme with Framer Motion animations
 
-## Architecture
+## 🏗️ Architecture
 
 The system follows a serverless, event-driven architecture using:
 - **AWS Lambda**: Serverless compute for microservices
-- **Amazon Bedrock**: Generative AI for content processing and code analysis
+- **Amazon Bedrock**: Generative AI (Claude 3.5 Sonnet) for content processing and code analysis
 - **Amazon Transcribe**: Speech-to-text conversion
 - **Amazon Polly**: Text-to-speech synthesis
 - **Amazon Translate**: Multilingual translation
@@ -25,11 +28,11 @@ The system follows a serverless, event-driven architecture using:
 - **API Gateway**: RESTful API management
 - **Cognito**: User authentication and authorization
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-ai-learning-assistant/
-├── src/                          # Source code
+ai-learning-productivity/
+├── src/                          # Backend source code
 │   ├── services/                 # Microservices
 │   │   ├── content_processing/   # Content processing service
 │   │   ├── quiz_generation/      # Quiz and flashcard generation
@@ -42,6 +45,11 @@ ai-learning-assistant/
 │   │   ├── models/               # Data models
 │   │   └── utils/                # Common utilities
 │   └── api/                      # API Gateway handlers
+├── frontend/                     # React + TypeScript frontend
+│   ├── src/                      # Frontend source
+│   │   ├── components/           # React components
+│   │   └── App.tsx               # Main application
+│   └── public/                   # Static assets
 ├── infrastructure/               # AWS CDK infrastructure code
 ├── tests/                        # Test suites
 │   ├── unit/                     # Unit tests
@@ -51,19 +59,27 @@ ai-learning-assistant/
 └── docs/                         # Documentation
 ```
 
-## Prerequisites
+## 🚀 Live Deployment
+
+- **Backend API**: `https://qtyf9c08b4.execute-api.ap-south-1.amazonaws.com/dev/`
+- **Frontend**: Ready for Vercel deployment
+- **Region**: AWS Mumbai (ap-south-1)
+
+## 📋 Prerequisites
 
 - Python 3.11 or higher
-- Node.js 18+ (for AWS CDK)
+- Node.js 18+ (for AWS CDK and React)
 - AWS CLI configured with appropriate credentials
 - AWS CDK CLI installed (`npm install -g aws-cdk`)
 
-## Installation
+## 🔧 Installation
+
+### Backend Setup
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd ai-learning-assistant
+git clone https://github.com/RsEg7777/ai-learning-productivity.git
+cd ai-learning-productivity
 ```
 
 2. Create and activate a virtual environment:
@@ -85,7 +101,26 @@ npm install
 cd ..
 ```
 
-## Configuration
+### Frontend Setup
+
+1. Navigate to frontend directory:
+```bash
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start development server:
+```bash
+npm start
+```
+
+The app will open at `http://localhost:3000`
+
+## ⚙️ Configuration
 
 1. Copy the example configuration:
 ```bash
@@ -96,11 +131,11 @@ cp config/config.example.yaml config/config.yaml
 
 3. Set environment variables:
 ```bash
-export AWS_REGION=us-east-1
+export AWS_REGION=ap-south-1
 export ENVIRONMENT=dev
 ```
 
-## Development
+## 🧪 Development
 
 ### Running Tests
 
@@ -132,17 +167,30 @@ cdk deploy --all
 cdk deploy AILearningAssistantStack
 ```
 
-### Local Development
+### Deploying Frontend to Vercel
 
 ```bash
-# Run local API server (using SAM)
-sam local start-api
+cd frontend
 
-# Invoke specific Lambda function
-sam local invoke ContentProcessingFunction --event events/test-event.json
+# Using Vercel CLI
+vercel
+
+# Or for production
+vercel --prod
 ```
 
-## Testing Strategy
+See `frontend/README_DEPLOYMENT.md` for detailed deployment instructions.
+
+## 🎨 Frontend Features
+
+- **Cyan Dark Theme**: Modern cyberpunk aesthetic with pure cyan (#00ffff) accents
+- **Custom Cursor**: Glowing cyan cursor with follower trail
+- **Animations**: Smooth transitions using Framer Motion
+- **Particle System**: Floating particles with connection lines
+- **Responsive Design**: Works on all screen sizes
+- **Interactive Components**: Quiz generator, flashcard creator, code analyzer
+
+## 🧪 Testing Strategy
 
 The project uses a dual testing approach:
 
@@ -151,7 +199,7 @@ The project uses a dual testing approach:
 
 Each property test references its corresponding design document property and validates specific requirements.
 
-## Security
+## 🔒 Security
 
 - All data encrypted in transit (TLS) and at rest (AES-256)
 - Multi-factor authentication via AWS Cognito
@@ -159,14 +207,32 @@ Each property test references its corresponding design document property and val
 - Comprehensive audit logging
 - Data privacy controls and consent management
 
-## License
+## 📚 Documentation
 
-[Your License Here]
+Comprehensive documentation is available in the `docs/` directory:
+- API Gateway Implementation
+- Service Integration Guide
+- Error Handling Strategy
+- Multilingual Support
+- And more...
 
-## Contributing
+## 🏆 Hackathon 2026
 
-[Contributing guidelines]
+This project was developed for the AWS AI Bharat 2026 Hackathon, showcasing:
+- Modern serverless architecture on AWS
+- AI-powered learning and productivity tools
+- Beautiful, award-winning UI design
+- Comprehensive testing and documentation
+- Production-ready deployment
 
-## Support
+## 📄 License
 
-For issues and questions, please open a GitHub issue or contact [support email].
+MIT License
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📧 Support
+
+For issues and questions, please open a GitHub issue.
