@@ -4,6 +4,11 @@
   "devCommand": "cd frontend && npm start",
   "installCommand": "cd frontend && npm install",
   "framework": null,
+  "build": {
+    "env": {
+      "CI": "false"
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
