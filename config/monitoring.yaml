@@ -1,0 +1,351 @@
+# Monitoring and Observability Configuration for AI Learning Assistant
+
+# CloudWatch Metrics Configuration
+metrics:
+  namespace: "AILearningAssistant"
+  
+  # Custom metrics to track
+  custom_metrics:
+    - name: "ContentProcessingTime"
+      unit: "Milliseconds"
+      dimensions:
+        - ContentType
+        - Language
+    
+    - name: "QuizGenerationTime"
+      unit: "Milliseconds"
+      dimensions:
+        - QuestionCount
+    
+    - name: "CodeAnalysisTime"
+      unit: "Milliseconds"
+      dimensions:
+        - ProgrammingLanguage
+    
+    - name: "VoiceTranscriptionTime"
+      unit: "Milliseconds"
+      dimensions:
+        - Language
+        - AudioDuration
+    
+    - name: "ServiceErrors"
+      unit: "Count"
+      dimensions:
+        - ServiceName
+        - ErrorType
+    
+    - name: "APIRequestCount"
+      unit: "Count"
+      dimensions:
+        - Endpoint
+        - StatusCode
+    
+    - name: "ServiceCommunicationLatency"
+      unit: "Milliseconds"
+      dimensions:
+        - SourceService
+        - TargetService
+
+# CloudWatch Alarms Configuration
+alarms:
+  # High error rate alarm
+  - name: "HighErrorRate"
+    metric: "ServiceErrors"
+    threshold: 10
+    evaluation_periods: 2
+    period: 300  # 5 minutes
+    statistic: "Sum"
+    comparison: "GreaterThanThreshold"
+    actions:
+      - type: "SNS"
+        topic: "ai-learning-assistant-alerts"
+  
+  # High latency alarm
+  - name: "HighLatency"
+    metric: "ContentProcessingTime"
+    threshold: 30000  # 30 seconds
+    evaluation_periods: 3
+    period: 60
+    statistic: "Average"
+    comparison: "GreaterThanThreshold"
+    actions:
+      - type: "SNS"
+        topic: "ai-learning-assistant-alerts"
+  
+  # Lambda throttling alarm
+  - name: "LambdaThrottling"
+    metric: "Throttles"
+    namespace: "AWS/Lambda"
+    threshold: 5
+    evaluation_periods: 1
+    period: 300
+    statistic: "Sum"
+    comparison: "GreaterThanThreshold"
+    actions:
+      - type: "SNS"
+        topic: "ai-learning-assistant-alerts"
+  
+  # API Gateway 5xx errors
+  - name: "APIGateway5xxErrors"
+    metric: "5XXError"
+    namespace: "AWS/ApiGateway"
+    threshold: 10
+    evaluation_periods: 2
+    period: 300
+    statistic: "Sum"
+    comparison: "GreaterThanThreshold"
+    actions:
+      - type: "SNS"
+        topic: "ai-learning-assistant-alerts"
+
+# CloudWatch Logs Configuration
+logs:
+  retention_days: 7  # Non-production
+  
+  # Log groups
+  log_groups:
+    - name: "/aws/lambda/ai-learning-assistant-content-upload"
+      retention: 7
+      
+    - name: "/aws/lambda/ai-learning-assistant-text-processing"
+      retention: 7
+      
+    - name: "/aws/lambda/ai-learning-assistant-quiz-generation"
+      retention: 7
+      
+    - name: "/aws/lambda/ai-learning-assistant-code-analysis"
+      retention: 7
+      
+    - name: "/aws/lambda/ai-learning-assistant-voice-transcription"
+      retention: 7
+      
+    - name: "/aws/apigateway/ai-learning-assistant"
+      retention: 7
+  
+  # Log insights queries
+  insights_queries:
+    - name: "ErrorsByService"
+      query: |
+        fields @timestamp, @message, service, error_code
+        | filter @message like /ERROR/
+        | stats count() by service, error_code
+        | sort count desc
+    
+    - name: "LatencyByEndpoint"
+      query: |
+        fields @timestamp, endpoint, duration
+        | filter endpoint != ""
+        | stats avg(duration), max(duration), pct(duration, 95) by endpoint
+        | sort avg(duration) desc
+    
+    - name: "ServiceCommunicationErrors"
+      query: |
+        fields @timestamp, source_service, target_service, error
+        | filter error_type = "SERVICE_COMMUNICATION_ERROR"
+        | stats count() by source_service, target_service
+    
+    - name: "HealthCheckStatus"
+      query: |
+        fields @timestamp, status, services
+        | filter @message like /health/
+        | stats latest(status) by service
+
+# X-Ray Tracing Configuration
+xray:
+  enabled: true
+  sampling_rate: 0.1  # 10% of requests
+  
+  # Services to trace
+  traced_services:
+    - content_processing
+    - quiz_generation
+    - code_analysis
+    - voice_interface
+    - multilingual
+  
+  # Annotations for filtering
+  annotations:
+    - user_id
+    - content_type
+    - language
+    - service_name
+
+# Health Check Configuration
+health_checks:
+  # Basic health check
+  basic:
+    endpoint: "/health"
+    interval: 30  # seconds
+    timeout: 5
+    healthy_threshold: 2
+    unhealthy_threshold: 3
+  
+  # Detailed health check
+  detailed:
+    endpoint: "/health/detailed"
+    interval: 60
+    timeout: 10
+    healthy_threshold: 2
+    unhealthy_threshold: 3
+  
+  # Readiness check
+  readiness:
+    endpoint: "/health/ready"
+    interval: 30
+    timeout: 5
+    healthy_threshold: 2
+    unhealthy_threshold: 3
+
+# Dashboard Configuration
+dashboards:
+  - name: "ServiceOverview"
+    widgets:
+      - type: "metric"
+        title: "API Request Count"
+        metrics:
+          - "APIRequestCount"
+        period: 300
+        stat: "Sum"
+      
+      - type: "metric"
+        title: "Service Errors"
+        metrics:
+          - "ServiceErrors"
+        period: 300
+        stat: "Sum"
+      
+      - type: "metric"
+        title: "Processing Latency"
+        metrics:
+          - "ContentProcessingTime"
+          - "QuizGenerationTime"
+          - "CodeAnalysisTime"
+        period: 300
+        stat: "Average"
+      
+      - type: "log_insights"
+        title: "Recent Errors"
+        query: "ErrorsByService"
+        period: 3600
+  
+  - name: "ServiceHealth"
+    widgets:
+      - type: "metric"
+        title: "Lambda Invocations"
+        namespace: "AWS/Lambda"
+        metrics:
+          - "Invocations"
+        period: 300
+        stat: "Sum"
+      
+      - type: "metric"
+        title: "Lambda Errors"
+        namespace: "AWS/Lambda"
+        metrics:
+          - "Errors"
+        period: 300
+        stat: "Sum"
+      
+      - type: "metric"
+        title: "Lambda Duration"
+        namespace: "AWS/Lambda"
+        metrics:
+          - "Duration"
+        period: 300
+        stat: "Average"
+      
+      - type: "metric"
+        title: "API Gateway Latency"
+        namespace: "AWS/ApiGateway"
+        metrics:
+          - "Latency"
+        period: 300
+        stat: "Average"
+
+# Service-to-Service Communication Monitoring
+service_communication:
+  # Track communication patterns
+  track_patterns:
+    - source: "content_processing"
+      targets:
+        - "quiz_generation"
+        - "flashcard_generation"
+    
+    - source: "voice_interface"
+      targets:
+        - "content_processing"
+        - "multilingual"
+    
+    - source: "orchestrator"
+      targets:
+        - "content_processing"
+        - "quiz_generation"
+        - "code_analysis"
+        - "voice_interface"
+  
+  # Communication metrics
+  metrics:
+    - "CommunicationLatency"
+    - "CommunicationErrors"
+    - "CommunicationRetries"
+
+# Performance Targets (SLOs)
+slos:
+  # Content processing
+  content_processing:
+    latency_p95: 30000  # 30 seconds
+    error_rate: 0.01  # 1%
+    availability: 0.999  # 99.9%
+  
+  # Quiz generation
+  quiz_generation:
+    latency_p95: 15000  # 15 seconds
+    error_rate: 0.01
+    availability: 0.999
+  
+  # Code analysis
+  code_analysis:
+    latency_p95: 15000  # 15 seconds
+    error_rate: 0.01
+    availability: 0.999
+  
+  # Voice interface
+  voice_interface:
+    latency_p95: 60000  # 60 seconds for transcription
+    error_rate: 0.05  # 5% (voice can be challenging)
+    availability: 0.99  # 99%
+  
+  # API Gateway
+  api_gateway:
+    latency_p95: 1000  # 1 second
+    error_rate: 0.01
+    availability: 0.999
+
+# Alert Routing
+alert_routing:
+  # Critical alerts (immediate response)
+  critical:
+    - "HighErrorRate"
+    - "APIGateway5xxErrors"
+    channels:
+      - type: "SNS"
+        topic: "ai-learning-assistant-critical"
+      - type: "PagerDuty"
+        service_key: "${PAGERDUTY_SERVICE_KEY}"
+  
+  # Warning alerts (review within hours)
+  warning:
+    - "HighLatency"
+    - "LambdaThrottling"
+    channels:
+      - type: "SNS"
+        topic: "ai-learning-assistant-warnings"
+      - type: "Slack"
+        webhook: "${SLACK_WEBHOOK_URL}"
+  
+  # Info alerts (review daily)
+  info:
+    channels:
+      - type: "Email"
+        addresses:
+          - "team@example.com"
