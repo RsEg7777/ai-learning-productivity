@@ -63,8 +63,8 @@ curl https://qtyf9c08b4.execute-api.ap-south-1.amazonaws.com/dev/health/metrics
 - **Username**: `testuser`
 - **Password**: `TestPass123!`
 - **Email**: `test@example.com`
-- **User Pool ID**: `ap-south-1_cfA9dz15h`
-- **Client ID**: `49n7akp9lublvpa04dbt2qjoa2`
+- **User Pool ID**: `YOUR_USER_POOL_ID`
+- **Client ID**: `YOUR_CLIENT_ID`
 
 ### Get Authentication Token
 ```bash

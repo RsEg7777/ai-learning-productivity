@@ -47,7 +47,20 @@ cdk.out/
 # Environment
 .env
 .env.local
+.env.production
 config/config.yaml
+
+# Credentials and Secrets (NEVER COMMIT THESE!)
+*credentials*.json
+*secrets*.json
+*oauth*.json
+setup-google-auth-real.ps1
+google-auth-real.md
+*-credentials.ps1
+*-secrets.ps1
+*.pem
+*.key
+*.cert
 
 # Logs
 *.log

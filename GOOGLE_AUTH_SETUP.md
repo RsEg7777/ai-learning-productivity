@@ -1,8 +1,18 @@
 # Google Authentication Setup Guide
 
-## Your Google OAuth Credentials
-- **Client ID**: `18697676680-5pm58nr37uasdjkr826p2v8v63f8m02o.apps.googleusercontent.com`
-- **Client Secret**: `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`
+## ⚠️ IMPORTANT: Security Notice
+**DO NOT commit your actual Google OAuth credentials to git!**
+
+Store your credentials securely:
+- Use environment variables
+- Use AWS Secrets Manager
+- Use a local `.env` file (add to .gitignore)
+
+## Your Google OAuth Credentials (Template)
+- **Client ID**: `YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com`
+- **Client Secret**: `YOUR_GOOGLE_CLIENT_SECRET`
+- **User Pool ID**: `YOUR_USER_POOL_ID`
+- **Cognito Client ID**: `YOUR_COGNITO_CLIENT_ID`
 
 ## Step 1: Update Google Cloud Console
 
@@ -19,7 +29,7 @@
 
 ### A. Create Cognito Domain
 1. Go to [AWS Cognito Console](https://ap-south-1.console.aws.amazon.com/cognito/v2/idp/user-pools?region=ap-south-1)
-2. Click on User Pool: `ap-south-1_cfA9dz15h`
+2. Click on your User Pool
 3. Go to **App integration** tab
 4. Scroll down to **Domain** section
 5. Click **Actions** → **Create Cognito domain**
@@ -31,9 +41,9 @@
 2. Scroll to **Federated identity provider sign-in**
 3. Click **Add identity provider**
 4. Select **Google**
-5. Enter:
-   - **Google app ID**: `18697676680-5pm58nr37uasdjkr826p2v8v63f8m02o.apps.googleusercontent.com`
-   - **Google app secret**: `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`
+5. Enter your Google OAuth credentials:
+   - **Google app ID**: `YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com`
+   - **Google app secret**: `YOUR_GOOGLE_CLIENT_SECRET`
    - **Authorized scopes**: `profile email openid`
 6. Under **Attribute mapping**, set:
    - `email` → `email`

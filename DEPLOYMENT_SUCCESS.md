@@ -38,8 +38,8 @@ The AI Learning Assistant has been successfully deployed to AWS in the `ap-south
 - `ai-learning-assistant-content-dev-161438778918` - Content storage with versioning
 
 #### Cognito User Pool
-- **User Pool ID**: `ap-south-1_cfA9dz15h`
-- **Client ID**: `49n7akp9lublvpa04dbt2qjoa2`
+- **User Pool ID**: `YOUR_USER_POOL_ID` (e.g., ap-south-1_xxxxxxxxx)
+- **Client ID**: `YOUR_CLIENT_ID` (e.g., xxxxxxxxxxxxxxxxxxxxxxxxxx)
 - Features: Email/username login, MFA support, password recovery
 
 #### API Gateway

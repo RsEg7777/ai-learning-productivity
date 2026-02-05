@@ -1,11 +1,13 @@
 # Setup Google Authentication for AWS Cognito
 # Run this script to configure Google as an identity provider
 
-$UserPoolId = "ap-south-1_cfA9dz15h"
-$ClientId = "49n7akp9lublvpa04dbt2qjoa2"
-$GoogleClientId = "18697676680-5pm58nr37uasdjkr826p2v8v63f8m02o.apps.googleusercontent.com"
-$GoogleClientSecret = "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"
-$Region = "ap-south-1"
+# IMPORTANT: Replace these with your actual values
+# DO NOT commit real credentials to git!
+$UserPoolId = "YOUR_USER_POOL_ID"  # e.g., ap-south-1_xxxxxxxxx
+$ClientId = "YOUR_COGNITO_CLIENT_ID"  # e.g., xxxxxxxxxxxxxxxxxxxxxxxxxx
+$GoogleClientId = "YOUR_GOOGLE_CLIENT_ID"  # e.g., xxxxx.apps.googleusercontent.com
+$GoogleClientSecret = "YOUR_GOOGLE_CLIENT_SECRET"  # e.g., GOCSPX-xxxxx
+$Region = "YOUR_AWS_REGION"  # e.g., ap-south-1
 
 Write-Host "Setting up Google Authentication for Cognito..." -ForegroundColor Cyan
 
