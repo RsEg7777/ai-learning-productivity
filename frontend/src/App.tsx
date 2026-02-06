@@ -4,6 +4,10 @@ import './App.css';
 import QuizGenerator from './components/QuizGenerator';
 import FlashcardGenerator from './components/FlashcardGenerator';
 import CodeAnalyzer from './components/CodeAnalyzer';
+import AITutorChat from './components/AITutorChat';
+import CodePlayground from './components/CodePlayground';
+import GamificationDashboard from './components/GamificationDashboard';
+import MultimodalProcessor from './components/MultimodalProcessor';
 import Login from './components/Login';
 import CustomCursor from './components/CustomCursor';
 import CyberParticles from './components/CyberParticles';
@@ -45,7 +49,7 @@ const tabVariants = {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState('quiz');
+  const [activeTab, setActiveTab] = useState('tutor');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authToken, setAuthToken] = useState('');
   const [username, setUsername] = useState('');
@@ -189,21 +193,27 @@ function App() {
       </motion.header>
 
       <nav className="nav-tabs">
-        {['quiz', 'flashcards', 'code'].map((tab, i) => (
+        {[
+          { id: 'tutor', label: '🤖 AI Tutor', icon: '🤖' },
+          { id: 'playground', label: '💻 Code Playground', icon: '💻' },
+          { id: 'gamification', label: '🎮 Gamification', icon: '🎮' },
+          { id: 'multimodal', label: '🖼️ Multimodal AI', icon: '🖼️' },
+          { id: 'quiz', label: '📝 Quiz', icon: '📝' },
+          { id: 'flashcards', label: '🎴 Flashcards', icon: '🎴' },
+          { id: 'code', label: '🔍 Code Analysis', icon: '🔍' }
+        ].map((tab, i) => (
           <motion.button
-            key={tab}
+            key={tab.id}
             custom={i}
             variants={tabVariants}
             initial="initial"
             animate="animate"
             whileHover="hover"
             whileTap="tap"
-            className={activeTab === tab ? 'active' : ''}
-            onClick={() => setActiveTab(tab)}
+            className={activeTab === tab.id ? 'active' : ''}
+            onClick={() => setActiveTab(tab.id)}
           >
-            {tab === 'quiz' && '📝 Quiz Generator'}
-            {tab === 'flashcards' && '🎴 Flashcards'}
-            {tab === 'code' && '💻 Code Analysis'}
+            {tab.label}
           </motion.button>
         ))}
       </nav>
@@ -218,6 +228,10 @@ function App() {
             exit="exit"
             transition={{ duration: 0.4 }}
           >
+            {activeTab === 'tutor' && <AITutorChat authToken={authToken} />}
+            {activeTab === 'playground' && <CodePlayground authToken={authToken} />}
+            {activeTab === 'gamification' && <GamificationDashboard authToken={authToken} />}
+            {activeTab === 'multimodal' && <MultimodalProcessor authToken={authToken} />}
             {activeTab === 'quiz' && <QuizGenerator authToken={authToken} />}
             {activeTab === 'flashcards' && <FlashcardGenerator authToken={authToken} />}
             {activeTab === 'code' && <CodeAnalyzer authToken={authToken} />}
