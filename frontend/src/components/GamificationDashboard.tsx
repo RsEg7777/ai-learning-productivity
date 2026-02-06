@@ -29,6 +29,7 @@ const GamificationDashboard: React.FC<GamificationDashboardProps> = ({ authToken
 
   useEffect(() => {
     fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchStats = async () => {

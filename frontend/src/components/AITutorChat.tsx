@@ -9,12 +9,11 @@ interface Message {
 }
 
 interface AITutorChatProps {
-  apiUrl: string;
-  token: string;
-  onClose: () => void;
+  authToken: string;
 }
 
-const AITutorChat: React.FC<AITutorChatProps> = ({ apiUrl, token, onClose }) => {
+const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
+  const apiUrl = process.env.REACT_APP_API_URL || '';
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -38,7 +37,7 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ apiUrl, token, onClose }) => 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           user_id: 'user123', // Get from auth context
@@ -83,7 +82,7 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ apiUrl, token, onClose }) => 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           session_id: sessionId,
@@ -152,19 +151,6 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ apiUrl, token, onClose }) => 
         alignItems: 'center',
       }}>
         <h2 style={{ color: '#00ffff', margin: 0 }}>🤖 AI Tutor</h2>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'transparent',
-            border: '1px solid #00ffff',
-            color: '#00ffff',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-          }}
-        >
-          Close
-        </button>
       </div>
 
       {/* Setup (if no session) */}
