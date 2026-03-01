@@ -54,6 +54,13 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ authToken }) => {
   });
 
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    target: 10,
+    category: 'Programming'
+  });
 
   const addGoal = () => {
     if (!newGoal.title.trim()) return;
@@ -84,6 +91,41 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ authToken }) => {
 
   const deleteGoal = (id: string) => {
     setGoals(goals.filter(goal => goal.id !== id));
+  };
+
+  const startEdit = (goal: LearningGoal) => {
+    setEditingGoal(goal.id);
+    setEditForm({
+      title: goal.title,
+      description: goal.description,
+      target: goal.target,
+      category: goal.category
+    });
+  };
+
+  const saveEdit = () => {
+    if (!editingGoal) return;
+
+    setGoals(goals.map(goal => {
+      if (goal.id === editingGoal) {
+        return {
+          ...goal,
+          title: editForm.title,
+          description: editForm.description,
+          target: editForm.target,
+          category: editForm.category
+        };
+      }
+      return goal;
+    }));
+
+    setEditingGoal(null);
+    setEditForm({ title: '', description: '', target: 10, category: 'Programming' });
+  };
+
+  const cancelEdit = () => {
+    setEditingGoal(null);
+    setEditForm({ title: '', description: '', target: 10, category: 'Programming' });
   };
 
   const getCategoryColor = (category: string) => {
@@ -264,25 +306,109 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ authToken }) => {
               )}
 
               <div style={{ marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
-                  <h3 style={{ color: 'var(--text-primary)', margin: 0, flex: 1 }}>
-                    {goal.title}
-                  </h3>
-                  <span style={{
-                    padding: '0.25rem 0.75rem',
-                    background: getCategoryColor(goal.category),
-                    color: 'white',
-                    borderRadius: '12px',
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold',
-                    marginLeft: '1rem'
-                  }}>
-                    {goal.category}
-                  </span>
-                </div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-                  {goal.description}
-                </p>
+                {editingGoal === goal.id ? (
+                  <div>
+                    <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                      <input
+                        type="text"
+                        value={editForm.title}
+                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        placeholder="Goal title"
+                        style={{ marginBottom: '0.5rem' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                      <textarea
+                        value={editForm.description}
+                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        placeholder="Description"
+                        rows={2}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                      <select
+                        value={editForm.category}
+                        onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                        style={{ flex: 1 }}
+                        className="form-group"
+                      >
+                        <option value="Programming">Programming</option>
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="Development">Development</option>
+                        <option value="Mathematics">Mathematics</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      <input
+                        type="number"
+                        value={editForm.target}
+                        onChange={(e) => setEditForm({ ...editForm, target: parseInt(e.target.value) })}
+                        min="5"
+                        max="100"
+                        style={{ width: '100px' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={saveEdit}
+                        style={{
+                          flex: 1,
+                          padding: '0.5rem',
+                          background: 'var(--success)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          color: 'white',
+                          fontSize: '0.85rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✅ Save
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={cancelEdit}
+                        style={{
+                          flex: 1,
+                          padding: '0.5rem',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '8px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.85rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ❌ Cancel
+                      </motion.button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
+                      <h3 style={{ color: 'var(--text-primary)', margin: 0, flex: 1 }}>
+                        {goal.title}
+                      </h3>
+                      <span style={{
+                        padding: '0.25rem 0.75rem',
+                        background: getCategoryColor(goal.category),
+                        color: 'white',
+                        borderRadius: '12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        marginLeft: '1rem'
+                      }}>
+                        {goal.category}
+                      </span>
+                    </div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
+                      {goal.description}
+                    </p>
+                  </>
+                )}
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
@@ -322,66 +448,86 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ authToken }) => {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => updateProgress(goal.id, 1)}
-                  disabled={isComplete}
-                  style={{
-                    flex: 1,
-                    padding: '0.75rem',
-                    background: isComplete ? 'var(--border)' : 'var(--success)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: 'white',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold',
-                    cursor: isComplete ? 'not-allowed' : 'pointer',
-                    opacity: isComplete ? 0.5 : 1
-                  }}
-                >
-                  ➕ Progress
-                </motion.button>
+              {editingGoal !== goal.id && (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => updateProgress(goal.id, 1)}
+                    disabled={isComplete}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      background: isComplete ? 'var(--border)' : 'var(--success)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold',
+                      cursor: isComplete ? 'not-allowed' : 'pointer',
+                      opacity: isComplete ? 0.5 : 1
+                    }}
+                  >
+                    ➕ Progress
+                  </motion.button>
 
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => updateProgress(goal.id, -1)}
-                  disabled={goal.progress === 0}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold',
-                    cursor: goal.progress === 0 ? 'not-allowed' : 'pointer',
-                    opacity: goal.progress === 0 ? 0.5 : 1
-                  }}
-                >
-                  ➖
-                </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => updateProgress(goal.id, -1)}
+                    disabled={goal.progress === 0}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold',
+                      cursor: goal.progress === 0 ? 'not-allowed' : 'pointer',
+                      opacity: goal.progress === 0 ? 0.5 : 1
+                    }}
+                  >
+                    ➖
+                  </motion.button>
 
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => deleteGoal(goal.id)}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid var(--error)',
-                    borderRadius: '8px',
-                    color: 'var(--error)',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold',
-                    cursor: 'pointer'
-                  }}
-                >
-                  🗑️
-                </motion.button>
-              </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => startEdit(goal)}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      background: 'rgba(99, 102, 241, 0.1)',
+                      border: '1px solid var(--primary)',
+                      borderRadius: '8px',
+                      color: 'var(--primary)',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✏️
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => deleteGoal(goal.id)}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid var(--error)',
+                      borderRadius: '8px',
+                      color: 'var(--error)',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🗑️
+                  </motion.button>
+                </div>
+              )}
             </motion.div>
           );
         })}
