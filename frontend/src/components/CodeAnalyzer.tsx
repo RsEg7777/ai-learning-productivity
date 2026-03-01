@@ -32,7 +32,6 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
     
     // Detect variables
     const variables = code.match(/\b(let|const|var|int|string|float|double|bool)\s+(\w+)/g) || [];
-    const functionNames = code.match(/\b(function|def|func)\s+(\w+)/g) || [];
     
     // Calculate complexity
     const cyclomaticComplexity = 1 + (code.match(/\b(if|else if|for|while|case|catch|\|\||&&)\b/g) || []).length;
@@ -78,7 +77,7 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
     if (cyclomaticComplexity > 10) {
       suggestions.push('Reduce cyclomatic complexity by breaking down complex functions');
     }
-    if (!hasAsync && code.includes('fetch') || code.includes('request')) {
+    if (!hasAsync && (code.includes('fetch') || code.includes('request'))) {
       suggestions.push('Consider using async/await for better asynchronous code handling');
     }
     suggestions.push(`Follow ${language} style guide conventions (PEP 8 for Python, ESLint for JavaScript, etc.)`);

@@ -27,7 +27,6 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
   const generateMockResult = (mode: string, fileName: string, fileSize?: number) => {
     const fileExt = fileName.split('.').pop()?.toLowerCase() || '';
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExt);
-    const isPDF = fileExt === 'pdf';
     
     const results: { [key: string]: any } = {
       handwriting: {

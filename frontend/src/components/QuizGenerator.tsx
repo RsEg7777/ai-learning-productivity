@@ -38,8 +38,7 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
     const words = content.toLowerCase().split(/\s+/).filter(w => w.length > 4);
     const uniqueWords = Array.from(new Set(words));
     
-    // Detect numbers and facts
-    const numbers = content.match(/\d+/g) || [];
+    // Detect facts
     const capitalizedWords = content.match(/\b[A-Z][a-z]+\b/g) || [];
     
     for (let i = 0; i < Math.min(count, sentences.length); i++) {
