@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 
 interface FlashcardGeneratorProps {
   authToken: string;
@@ -23,8 +24,9 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
+  const [flippedCards, setFlippedCards] = useState<Set<string>>(new Set());
 
-  const API_URL = 'https://qtyf9c08b4.execute-api.ap-south-1.amazonaws.com/dev';
+  const API_URL = process.env.REACT_APP_API_URL || '';
 
   const handleGenerate = async () => {
     if (!content.trim()) {
@@ -35,13 +37,14 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
     setLoading(true);
     setError('');
     setFlashcards([]);
+    setFlippedCards(new Set());
 
     try {
       const response = await fetch(`${API_URL}/flashcards/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authToken,
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           content: content,
@@ -62,12 +65,26 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
     }
   };
 
+  const toggleFlip = (cardId: string) => {
+    setFlippedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(cardId)) {
+        newSet.delete(cardId);
+      } else {
+        newSet.add(cardId);
+      }
+      return newSet;
+    });
+  };
+
   return (
-    <div className="component-container">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="component-container"
+    >
       <h2>🎴 Flashcard Generator</h2>
-      <p style={{ color: '#666', marginBottom: '2rem' }}>
-        Create AI-powered flashcards for effective learning with spaced repetition.
-      </p>
+      <p>Create AI-powered flashcards for effective learning with spaced repetition</p>
 
       {error && <div className="error">{error}</div>}
 
@@ -77,7 +94,7 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Paste your learning content here..."
-          rows={8}
+          rows={10}
         />
       </div>
 
@@ -89,8 +106,11 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
           max="20"
           value={count}
           onChange={(e) => setCount(parseInt(e.target.value))}
-          style={{ width: '100%' }}
         />
+        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+          <span>5</span>
+          <span>20</span>
+        </div>
       </div>
 
       <button 
@@ -104,55 +124,103 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
       {loading && (
         <div className="loading">
           <p>AI is creating your flashcards...</p>
-          <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>This may take 10-30 seconds</p>
+          <p style={{ fontSize: '0.9rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
+            This may take 10-30 seconds
+          </p>
         </div>
       )}
 
       {flashcards.length > 0 && (
-        <div className="flashcard-results">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flashcard-results"
+        >
           <div className="success">
             ✅ {flashcards.length} flashcards generated successfully!
           </div>
 
-          {flashcards.map((card, index) => (
-            <div key={card.id} className="flashcard">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3>Flashcard {index + 1}</h3>
-                <span className="flashcard-difficulty">{card.difficulty.toUpperCase()}</span>
-              </div>
-              
-              <div style={{ marginBottom: '1.5rem' }}>
-                <strong style={{ fontSize: '0.9rem', opacity: 0.8 }}>QUESTION:</strong>
-                <p style={{ marginTop: '0.5rem', fontSize: '1.1rem' }}>{card.question}</p>
-              </div>
-              
-              <div>
-                <strong style={{ fontSize: '0.9rem', opacity: 0.8 }}>ANSWER:</strong>
-                <p style={{ marginTop: '0.5rem', fontSize: '1.1rem' }}>{card.answer}</p>
-              </div>
-              
-              {card.tags && card.tags.length > 0 && (
-                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {card.tags.map((tag, i) => (
-                    <span 
-                      key={i} 
-                      style={{ 
-                        background: 'rgba(255,255,255,0.3)', 
-                        padding: '0.3rem 0.8rem', 
-                        borderRadius: '15px',
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
+          <div style={{ marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            💡 Click on any card to flip and reveal the answer
+          </div>
+
+          {flashcards.map((card, index) => {
+            const isFlipped = flippedCards.has(card.id);
+            return (
+              <motion.div
+                key={card.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.1 }}
+                className="flashcard"
+                onClick={() => toggleFlip(card.id)}
+                style={{ 
+                  cursor: 'pointer',
+                  minHeight: '180px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: 0 }}>Flashcard {index + 1}</h3>
+                    <span className="flashcard-difficulty">{card.difficulty}</span>
+                  </div>
+                  
+                  <motion.div
+                    initial={false}
+                    animate={{ rotateY: isFlipped ? 180 : 0 }}
+                    transition={{ duration: 0.6 }}
+                    style={{ transformStyle: 'preserve-3d' }}
+                  >
+                    {!isFlipped ? (
+                      <div>
+                        <strong style={{ fontSize: '0.85rem', opacity: 0.8, color: 'var(--primary-light)' }}>
+                          QUESTION:
+                        </strong>
+                        <p style={{ marginTop: '0.5rem', fontSize: '1.05rem', lineHeight: '1.6' }}>
+                          {card.question}
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <strong style={{ fontSize: '0.85rem', opacity: 0.8, color: 'var(--success)' }}>
+                          ANSWER:
+                        </strong>
+                        <p style={{ marginTop: '0.5rem', fontSize: '1.05rem', lineHeight: '1.6' }}>
+                          {card.answer}
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+                
+                {card.tags && card.tags.length > 0 && (
+                  <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {card.tags.map((tag, i) => (
+                      <span 
+                        key={i} 
+                        style={{ 
+                          background: 'var(--bg-dark)', 
+                          padding: '0.3rem 0.75rem', 
+                          borderRadius: '15px',
+                          fontSize: '0.8rem',
+                          color: 'var(--text-secondary)',
+                          border: '1px solid var(--border)'
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

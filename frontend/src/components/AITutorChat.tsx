@@ -40,7 +40,7 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
           'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          user_id: 'user123', // Get from auth context
+          user_id: 'user123',
           subject: subject || undefined,
           teaching_style: teachingStyle,
           difficulty_level: 'adaptive',
@@ -50,7 +50,6 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
       const data = await response.json();
       setSessionId(data.session_id);
       
-      // Add welcome message
       setMessages([{
         role: 'assistant',
         content: `Hello! I'm your AI tutor. I'm here to help you learn${subject ? ` about ${subject}` : ''}. What would you like to explore today?`,
@@ -67,7 +66,6 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
   const askQuestion = async (question: string) => {
     if (!sessionId || !question.trim()) return;
 
-    // Add user message
     const userMessage: Message = {
       role: 'user',
       content: question,
@@ -94,7 +92,6 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
 
       const data = await response.json();
       
-      // Add assistant message
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.answer,
@@ -120,76 +117,26 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="ai-tutor-chat"
-      style={{
-        position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '90%',
-        maxWidth: '800px',
-        height: '80vh',
-        background: 'rgba(10, 10, 30, 0.95)',
-        border: '2px solid #00ffff',
-        borderRadius: '20px',
-        boxShadow: '0 0 40px rgba(0, 255, 255, 0.3)',
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 1000,
-      }}
-    >
-      {/* Header */}
-      <div style={{
-        padding: '20px',
-        borderBottom: '1px solid #00ffff',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <h2 style={{ color: '#00ffff', margin: 0 }}>🤖 AI Tutor</h2>
-      </div>
+    <div className="component-container" style={{ maxWidth: '900px', margin: '0 auto' }}>
+      <h2>🤖 AI Tutor Chat</h2>
+      <p>Get personalized tutoring with adaptive teaching styles</p>
 
-      {/* Setup (if no session) */}
       {!sessionId && (
-        <div style={{ padding: '20px' }}>
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ color: '#00ffff', display: 'block', marginBottom: '5px' }}>
-              Subject (optional):
-            </label>
+        <div style={{ marginBottom: '2rem' }}>
+          <div className="form-group">
+            <label>Subject (optional):</label>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="e.g., Python, Mathematics, Physics"
-              style={{
-                width: '100%',
-                padding: '10px',
-                background: 'rgba(0, 255, 255, 0.1)',
-                border: '1px solid #00ffff',
-                borderRadius: '8px',
-                color: '#fff',
-              }}
             />
           </div>
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ color: '#00ffff', display: 'block', marginBottom: '5px' }}>
-              Teaching Style:
-            </label>
+          <div className="form-group">
+            <label>Teaching Style:</label>
             <select
               value={teachingStyle}
               onChange={(e) => setTeachingStyle(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                background: 'rgba(0, 255, 255, 0.1)',
-                border: '1px solid #00ffff',
-                borderRadius: '8px',
-                color: '#fff',
-              }}
             >
               <option value="socratic">Socratic (Guiding Questions)</option>
               <option value="direct">Direct (Clear Explanations)</option>
@@ -199,11 +146,14 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
         </div>
       )}
 
-      {/* Messages */}
       <div style={{
-        flex: 1,
+        background: 'var(--bg-dark)',
+        border: '1px solid var(--border)',
+        borderRadius: '12px',
+        height: '500px',
         overflowY: 'auto',
-        padding: '20px',
+        padding: '1.5rem',
+        marginBottom: '1rem',
       }}>
         <AnimatePresence>
           {messages.map((msg, index) => (
@@ -212,26 +162,27 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               style={{
-                marginBottom: '15px',
+                marginBottom: '1rem',
                 display: 'flex',
                 justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
               }}
             >
               <div style={{
-                maxWidth: '70%',
-                padding: '12px 16px',
+                maxWidth: '75%',
+                padding: '1rem 1.25rem',
                 borderRadius: '12px',
                 background: msg.role === 'user' 
-                  ? 'rgba(0, 255, 255, 0.2)' 
-                  : 'rgba(100, 100, 255, 0.2)',
-                border: `1px solid ${msg.role === 'user' ? '#00ffff' : '#6666ff'}`,
+                  ? 'linear-gradient(135deg, var(--primary), var(--primary-dark))' 
+                  : 'var(--bg-card)',
+                border: msg.role === 'user' ? 'none' : '1px solid var(--border)',
+                color: 'var(--text-primary)',
               }}>
-                <div style={{ color: '#fff', marginBottom: '5px' }}>
+                <div style={{ marginBottom: msg.followUpQuestions ? '0.75rem' : '0' }}>
                   {msg.content}
                 </div>
                 {msg.followUpQuestions && msg.followUpQuestions.length > 0 && (
-                  <div style={{ marginTop: '10px' }}>
-                    <div style={{ color: '#00ffff', fontSize: '12px', marginBottom: '5px' }}>
+                  <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ color: 'var(--primary-light)', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 600 }}>
                       💡 Think about:
                     </div>
                     {msg.followUpQuestions.map((q, i) => (
@@ -239,13 +190,23 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
                         key={i}
                         onClick={() => askQuestion(q)}
                         style={{
-                          color: '#aaa',
-                          fontSize: '12px',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.85rem',
                           cursor: 'pointer',
-                          padding: '4px 8px',
-                          marginTop: '4px',
-                          background: 'rgba(0, 255, 255, 0.1)',
-                          borderRadius: '6px',
+                          padding: '0.5rem 0.75rem',
+                          marginTop: '0.4rem',
+                          background: 'var(--bg-dark)',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border)',
+                          transition: 'all 0.3s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--primary)';
+                          e.currentTarget.style.color = 'var(--primary-light)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--border)';
+                          e.currentTarget.style.color = 'var(--text-secondary)';
                         }}
                       >
                         {q}
@@ -258,20 +219,16 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
           ))}
         </AnimatePresence>
         {loading && (
-          <div style={{ color: '#00ffff', textAlign: 'center' }}>
-            Thinking...
+          <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <div className="loading" style={{ padding: '1rem' }}>
+              <p>Thinking...</p>
+            </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} style={{
-        padding: '20px',
-        borderTop: '1px solid #00ffff',
-        display: 'flex',
-        gap: '10px',
-      }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.75rem' }}>
         <input
           type="text"
           value={inputText}
@@ -280,30 +237,24 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
           disabled={loading}
           style={{
             flex: 1,
-            padding: '12px',
-            background: 'rgba(0, 255, 255, 0.1)',
-            border: '1px solid #00ffff',
-            borderRadius: '8px',
-            color: '#fff',
+            padding: '0.875rem 1rem',
+            background: 'var(--bg-dark)',
+            border: '1px solid var(--border)',
+            borderRadius: '10px',
+            color: 'var(--text-primary)',
+            fontSize: '0.95rem',
           }}
         />
         <button
           type="submit"
           disabled={loading || (!sessionId && !inputText.trim())}
-          style={{
-            padding: '12px 24px',
-            background: '#00ffff',
-            color: '#000',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
+          className="btn-primary"
+          style={{ width: 'auto', padding: '0.875rem 2rem' }}
         >
           {sessionId ? 'Send' : 'Start'}
         </button>
       </form>
-    </motion.div>
+    </div>
   );
 };
 

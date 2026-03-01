@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 
 interface CodeAnalyzerProps {
   authToken: string;
@@ -11,7 +12,7 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
   const [error, setError] = useState('');
   const [analysis, setAnalysis] = useState('');
 
-  const API_URL = 'https://qtyf9c08b4.execute-api.ap-south-1.amazonaws.com/dev';
+  const API_URL = process.env.REACT_APP_API_URL || '';
 
   const handleAnalyze = async () => {
     if (!code.trim()) {
@@ -28,7 +29,7 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authToken,
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           code: code,
@@ -50,11 +51,13 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
   };
 
   return (
-    <div className="component-container">
-      <h2>💻 Code Analyzer</h2>
-      <p style={{ color: '#666', marginBottom: '2rem' }}>
-        Get AI-powered explanations and analysis of your code.
-      </p>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="component-container"
+    >
+      <h2>🔍 Code Analyzer</h2>
+      <p>Get AI-powered explanations and analysis of your code</p>
 
       {error && <div className="error">{error}</div>}
 
@@ -63,13 +66,6 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
         <select 
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          style={{ 
-            width: '100%', 
-            padding: '1rem', 
-            border: '2px solid #e0e0e0', 
-            borderRadius: '8px',
-            fontSize: '1rem'
-          }}
         >
           <option value="python">Python</option>
           <option value="javascript">JavaScript</option>
@@ -79,6 +75,8 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
           <option value="csharp">C#</option>
           <option value="go">Go</option>
           <option value="rust">Rust</option>
+          <option value="ruby">Ruby</option>
+          <option value="php">PHP</option>
         </select>
       </div>
 
@@ -88,8 +86,8 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
           value={code}
           onChange={(e) => setCode(e.target.value)}
           placeholder="Paste your code here..."
-          rows={12}
-          style={{ fontFamily: 'monospace', fontSize: '0.95rem' }}
+          rows={15}
+          style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.9rem' }}
         />
       </div>
 
@@ -104,25 +102,31 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
       {loading && (
         <div className="loading">
           <p>AI is analyzing your code...</p>
-          <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>This may take 10-30 seconds</p>
+          <p style={{ fontSize: '0.9rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
+            This may take 10-30 seconds
+          </p>
         </div>
       )}
 
       {analysis && (
-        <div className="code-results">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="code-results"
+        >
           <div className="success">
             ✅ Code analysis completed!
           </div>
 
           <div className="code-analysis">
-            <h3 style={{ color: '#667eea', marginBottom: '1rem' }}>Analysis Results</h3>
-            <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', color: '#333' }}>
+            <h3>Analysis Results</h3>
+            <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.7', color: 'var(--text-primary)' }}>
               {analysis}
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

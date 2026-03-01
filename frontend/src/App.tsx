@@ -8,9 +8,9 @@ import AITutorChat from './components/AITutorChat';
 import CodePlayground from './components/CodePlayground';
 import GamificationDashboard from './components/GamificationDashboard';
 import MultimodalProcessor from './components/MultimodalProcessor';
+import StudyTimer from './components/StudyTimer';
+import ProgressTracker from './components/ProgressTracker';
 import Login from './components/Login';
-import CustomCursor from './components/CustomCursor';
-import CyberParticles from './components/CyberParticles';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
@@ -115,8 +115,6 @@ function App() {
   if (!isAuthenticated) {
     return (
       <>
-        <CustomCursor />
-        <CyberParticles />
         <div className="scan-line" />
         <Login onLogin={handleLogin} />
       </>
@@ -125,11 +123,7 @@ function App() {
 
   return (
     <div className="App">
-      <CustomCursor />
-      <CyberParticles />
       <div className="scan-line" />
-      <div className="cyber-lines" />
-      <div className="data-stream" />
       <motion.header 
         className="App-header"
         variants={headerVariants}
@@ -195,6 +189,8 @@ function App() {
       <nav className="nav-tabs">
         {[
           { id: 'tutor', label: '🤖 AI Tutor', icon: '🤖' },
+          { id: 'timer', label: '⏱️ Study Timer', icon: '⏱️' },
+          { id: 'progress', label: '📊 Progress', icon: '📊' },
           { id: 'playground', label: '💻 Code Playground', icon: '💻' },
           { id: 'gamification', label: '🎮 Gamification', icon: '🎮' },
           { id: 'multimodal', label: '🖼️ Multimodal AI', icon: '🖼️' },
@@ -229,6 +225,8 @@ function App() {
             transition={{ duration: 0.4 }}
           >
             {activeTab === 'tutor' && <AITutorChat authToken={authToken} />}
+            {activeTab === 'timer' && <StudyTimer authToken={authToken} />}
+            {activeTab === 'progress' && <ProgressTracker authToken={authToken} />}
             {activeTab === 'playground' && <CodePlayground authToken={authToken} />}
             {activeTab === 'gamification' && <GamificationDashboard authToken={authToken} />}
             {activeTab === 'multimodal' && <MultimodalProcessor authToken={authToken} />}

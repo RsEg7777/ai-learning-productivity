@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 
 interface QuizGeneratorProps {
   authToken: string;
@@ -27,7 +28,7 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
   const [error, setError] = useState('');
   const [quiz, setQuiz] = useState<QuizResponse | null>(null);
 
-  const API_URL = 'https://qtyf9c08b4.execute-api.ap-south-1.amazonaws.com/dev';
+  const API_URL = process.env.REACT_APP_API_URL || '';
 
   const handleGenerate = async () => {
     if (!content.trim()) {
@@ -44,7 +45,7 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authToken,
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           content: content,
@@ -66,11 +67,13 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
   };
 
   return (
-    <div className="component-container">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="component-container"
+    >
       <h2>📝 Quiz Generator</h2>
-      <p style={{ color: '#666', marginBottom: '2rem' }}>
-        Generate AI-powered quizzes from any content. Get multiple choice, true/false, and fill-in-the-blank questions.
-      </p>
+      <p>Generate AI-powered quizzes from any content with multiple question types</p>
 
       {error && <div className="error">{error}</div>}
 
@@ -80,7 +83,7 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Paste your learning content here... (e.g., lecture notes, article, documentation)"
-          rows={8}
+          rows={10}
         />
       </div>
 
@@ -92,8 +95,11 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
           max="15"
           value={questionCount}
           onChange={(e) => setQuestionCount(parseInt(e.target.value))}
-          style={{ width: '100%' }}
         />
+        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+          <span>3</span>
+          <span>15</span>
+        </div>
       </div>
 
       <button 
@@ -107,29 +113,51 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
       {loading && (
         <div className="loading">
           <p>AI is analyzing your content and creating questions...</p>
-          <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>This may take 10-30 seconds</p>
+          <p style={{ fontSize: '0.9rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
+            This may take 10-30 seconds
+          </p>
         </div>
       )}
 
       {quiz && (
-        <div className="quiz-results">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="quiz-results"
+        >
           <div className="success">
             ✅ Quiz generated successfully! {quiz.questions.length} questions created.
           </div>
 
-          <div style={{ marginBottom: '2rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
-            <h3 style={{ color: '#667eea', marginBottom: '0.5rem' }}>{quiz.title}</h3>
-            <p style={{ color: '#666' }}>
+          <div style={{ 
+            marginBottom: '2rem', 
+            padding: '1.25rem', 
+            background: 'var(--bg-dark)', 
+            borderRadius: '12px',
+            border: '1px solid var(--border)'
+          }}>
+            <h3 style={{ color: 'var(--primary-light)', marginBottom: '0.5rem', fontSize: '1.3rem' }}>
+              {quiz.title}
+            </h3>
+            <p style={{ color: 'var(--text-secondary)' }}>
               Passing Score: {quiz.passing_score}% | 
               {quiz.time_limit ? ` Time Limit: ${quiz.time_limit}s` : ' No time limit'}
             </p>
           </div>
 
           {quiz.questions.map((question, index) => (
-            <div key={question.id} className="question-card">
-              <span className="question-type">{question.type.replace('_', ' ').toUpperCase()}</span>
+            <motion.div
+              key={question.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="question-card"
+            >
+              <span className="question-type">{question.type.replace('_', ' ')}</span>
               <h3>Question {index + 1}</h3>
-              <p style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>{question.text}</p>
+              <p style={{ fontSize: '1.05rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>
+                {question.text}
+              </p>
               
               {question.options && question.options.length > 0 && (
                 <ul className="options">
@@ -139,14 +167,14 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
                 </ul>
               )}
               
-              <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '1rem' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '1rem' }}>
                 Points: {question.points}
               </p>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
