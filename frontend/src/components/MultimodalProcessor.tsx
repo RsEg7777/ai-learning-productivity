@@ -149,6 +149,18 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
     setProcessing(true);
     setResult(null);
 
+    // If no API URL is configured, use mock data directly
+    const apiUrl = process.env.REACT_APP_API_URL || '';
+    if (!apiUrl) {
+      console.log('No API configured, using mock processing');
+      setTimeout(() => {
+        const mockResult = generateMockResult(mode, selectedFile.name, selectedFile.size);
+        setResult(mockResult);
+        setProcessing(false);
+      }, 2000);
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append('image', selectedFile);
@@ -161,7 +173,7 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
         screenshot: '/multimodal/screenshot-to-quiz'
       }[mode];
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}${endpoint}`, {
+      const response = await fetch(`${apiUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`
@@ -181,6 +193,7 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
 
       const data = await response.json();
       setResult(data);
+      setProcessing(false);
     } catch (error) {
       console.warn('API error, using mock data:', error);
       setTimeout(() => {

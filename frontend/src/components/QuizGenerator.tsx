@@ -134,6 +134,17 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
     setError('');
     setQuiz(null);
 
+    // If no API URL is configured, use mock data directly
+    if (!API_URL) {
+      console.log('No API configured, using mock quiz generation');
+      setTimeout(() => {
+        const mockQuiz = generateMockQuiz(content, questionCount);
+        setQuiz(mockQuiz);
+        setLoading(false);
+      }, 1500);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_URL}/quiz/generate`, {
         method: 'POST',

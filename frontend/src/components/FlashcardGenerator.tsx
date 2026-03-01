@@ -118,6 +118,17 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
     setFlashcards([]);
     setFlippedCards(new Set());
 
+    // If no API URL is configured, use mock data directly
+    if (!API_URL) {
+      console.log('No API configured, using mock flashcard generation');
+      setTimeout(() => {
+        const mockFlashcards = generateMockFlashcards(content, count);
+        setFlashcards(mockFlashcards);
+        setLoading(false);
+      }, 1500);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_URL}/flashcards/generate`, {
         method: 'POST',

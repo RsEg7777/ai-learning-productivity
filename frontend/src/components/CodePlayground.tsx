@@ -89,8 +89,20 @@ ${notes.join('')}
     setOutput('Executing code...');
     setAiSuggestion('');
     
+    // If no API URL is configured, use mock execution directly
+    const apiUrl = process.env.REACT_APP_API_URL || '';
+    if (!apiUrl) {
+      console.log('No API configured, using mock execution');
+      setTimeout(() => {
+        const mockOutput = simulateExecution(code, language);
+        setOutput(mockOutput);
+        setIsExecuting(false);
+      }, 1500);
+      return;
+    }
+    
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/playground/execute`, {
+      const response = await fetch(`${apiUrl}/playground/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,6 +135,7 @@ ${notes.join('')}
           setAiSuggestion(`💡 AI Help: ${data.ai_explanation}`);
         }
       }
+      setIsExecuting(false);
     } catch (error) {
       console.warn('API error, using mock execution:', error);
       setTimeout(() => {

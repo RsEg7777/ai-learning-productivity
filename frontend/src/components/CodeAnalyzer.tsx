@@ -134,6 +134,17 @@ Note: This is an AI-powered analysis. For production use, connect to AWS Bedrock
     setError('');
     setAnalysis('');
 
+    // If no API URL is configured, use local analysis directly
+    if (!API_URL) {
+      console.log('No API configured, using local analysis');
+      setTimeout(() => {
+        const localAnalysis = analyzeCodeLocally(code, language);
+        setAnalysis(localAnalysis);
+        setLoading(false);
+      }, 1000);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_URL}/code/analyze`, {
         method: 'POST',
