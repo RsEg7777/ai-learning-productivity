@@ -32,44 +32,94 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
 
   const generateMockQuiz = (content: string, count: number): QuizResponse => {
     const questions: Question[] = [];
-    const topics = content.split(' ').slice(0, 5).join(' ');
-
-    for (let i = 0; i < count; i++) {
-      if (i % 3 === 0) {
+    
+    // Extract sentences and key concepts
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 15);
+    const words = content.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+    const uniqueWords = Array.from(new Set(words));
+    
+    // Detect numbers and facts
+    const numbers = content.match(/\d+/g) || [];
+    const capitalizedWords = content.match(/\b[A-Z][a-z]+\b/g) || [];
+    
+    for (let i = 0; i < Math.min(count, sentences.length); i++) {
+      const sentence = sentences[i].trim();
+      const questionType = i % 4;
+      
+      if (questionType === 0 && sentence.length > 20) {
+        // Multiple choice based on sentence
+        const keywords = sentence.split(' ').filter(w => w.length > 5).slice(0, 4);
+        const correctAnswer = keywords[0] || 'concept';
+        
         questions.push({
           id: `q${i + 1}`,
           type: 'multiple_choice',
-          text: `What is the main concept discussed in "${topics}"?`,
+          text: `According to the content, which of the following is discussed: "${sentence.substring(0, 60)}..."?`,
           options: [
-            'Option A: First possible answer',
-            'Option B: Second possible answer',
-            'Option C: Third possible answer',
-            'Option D: Fourth possible answer'
+            `${correctAnswer} and its applications`,
+            `Alternative interpretation of ${keywords[1] || 'the topic'}`,
+            `Historical context of ${keywords[2] || 'the subject'}`,
+            `Future implications of ${keywords[3] || 'the concept'}`
           ],
           points: 10
         });
-      } else if (i % 3 === 1) {
+      } else if (questionType === 1) {
+        // True/False
         questions.push({
           id: `q${i + 1}`,
           type: 'true_false',
-          text: `The content discusses important aspects of the topic. True or False?`,
+          text: `True or False: ${sentence}`,
           options: ['True', 'False'],
           points: 5
         });
+      } else if (questionType === 2 && uniqueWords.length > i * 2) {
+        // Multiple choice with concepts
+        const concept1 = uniqueWords[i * 2] || 'concept';
+        const concept2 = uniqueWords[i * 2 + 1] || 'topic';
+        
+        questions.push({
+          id: `q${i + 1}`,
+          type: 'multiple_choice',
+          text: `What is the relationship between ${concept1} and ${concept2} in the given context?`,
+          options: [
+            `${concept1} directly influences ${concept2}`,
+            `They are independent concepts`,
+            `${concept2} is a subset of ${concept1}`,
+            `They are opposing concepts`
+          ],
+          points: 10
+        });
       } else {
+        // Short answer
+        const topic = uniqueWords[i] || 'main concept';
         questions.push({
           id: `q${i + 1}`,
           type: 'short_answer',
-          text: `Explain the key takeaway from the content in your own words.`,
+          text: `Explain the significance of "${topic}" as mentioned in the content. Provide specific details.`,
           points: 15
         });
       }
     }
+    
+    // Ensure we have the requested count
+    while (questions.length < count) {
+      const idx = questions.length;
+      questions.push({
+        id: `q${idx + 1}`,
+        type: 'short_answer',
+        text: `Summarize the key points from the content in your own words.`,
+        points: 15
+      });
+    }
+
+    const title = capitalizedWords.length > 0 
+      ? `Quiz: ${capitalizedWords.slice(0, 3).join(', ')}`
+      : `Quiz: ${uniqueWords.slice(0, 3).join(', ')}`;
 
     return {
       quiz_id: `quiz_${Date.now()}`,
-      title: `Quiz: ${topics.substring(0, 50)}...`,
-      questions,
+      title: title.substring(0, 60),
+      questions: questions.slice(0, count),
       time_limit: count * 60,
       passing_score: 70
     };

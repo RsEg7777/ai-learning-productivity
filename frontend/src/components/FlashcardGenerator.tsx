@@ -30,23 +30,81 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
 
   const generateMockFlashcards = (content: string, count: number): Flashcard[] => {
     const flashcards: Flashcard[] = [];
-    const topics = content.split(' ').slice(0, 10);
+    
+    // Extract meaningful phrases and concepts
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    const words = content.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+    const uniqueWords = Array.from(new Set(words)).slice(0, 20);
+    
+    // Detect topic
+    const topicKeywords = {
+      programming: ['code', 'function', 'variable', 'class', 'method', 'algorithm', 'data', 'program'],
+      science: ['theory', 'experiment', 'hypothesis', 'research', 'study', 'analysis', 'result'],
+      math: ['equation', 'formula', 'calculate', 'number', 'solve', 'proof', 'theorem'],
+      history: ['year', 'century', 'war', 'empire', 'revolution', 'period', 'era'],
+      language: ['grammar', 'vocabulary', 'sentence', 'word', 'meaning', 'definition']
+    };
+    
+    let detectedTopic = 'general';
+    let maxMatches = 0;
+    
+    for (const [topic, keywords] of Object.entries(topicKeywords)) {
+      const matches = keywords.filter(kw => content.toLowerCase().includes(kw)).length;
+      if (matches > maxMatches) {
+        maxMatches = matches;
+        detectedTopic = topic;
+      }
+    }
+    
     const difficulties = ['easy', 'medium', 'hard'];
-
-    for (let i = 0; i < count; i++) {
-      const topic = topics[i % topics.length] || 'concept';
+    
+    for (let i = 0; i < Math.min(count, sentences.length); i++) {
+      const sentence = sentences[i].trim();
       const difficulty = difficulties[i % 3];
+      const relevantWords = uniqueWords.slice(i * 2, i * 2 + 3);
+      
+      // Create contextual question
+      let question = '';
+      let answer = '';
+      
+      if (i % 3 === 0) {
+        // Definition style
+        const keyword = relevantWords[0] || 'concept';
+        question = `What is ${keyword} and why is it important in ${detectedTopic}?`;
+        answer = sentence.length > 100 ? sentence.substring(0, 100) + '...' : sentence;
+      } else if (i % 3 === 1) {
+        // Explanation style
+        question = `Explain the concept: "${sentence.substring(0, 50)}..."`;
+        answer = `This refers to ${sentence}. It's a key concept in understanding ${detectedTopic}.`;
+      } else {
+        // Application style
+        question = `How would you apply this concept: ${relevantWords.slice(0, 2).join(' and ')}?`;
+        answer = `Based on the content: ${sentence}`;
+      }
       
       flashcards.push({
         id: `fc_${Date.now()}_${i}`,
-        question: `What is ${topic}? Explain its significance and applications.`,
-        answer: `${topic.charAt(0).toUpperCase() + topic.slice(1)} is an important concept that plays a crucial role in understanding the subject matter. It has various applications and is fundamental to grasping more advanced topics.`,
+        question: question,
+        answer: answer,
         difficulty: difficulty,
-        tags: [topic, 'fundamental', difficulty]
+        tags: [detectedTopic, ...relevantWords.slice(0, 2), difficulty]
+      });
+    }
+    
+    // If we need more flashcards, create summary ones
+    while (flashcards.length < count && sentences.length > 0) {
+      const idx = flashcards.length;
+      const sentence = sentences[idx % sentences.length];
+      flashcards.push({
+        id: `fc_${Date.now()}_${idx}`,
+        question: `What does this statement mean: "${sentence.substring(0, 60)}..."?`,
+        answer: sentence,
+        difficulty: difficulties[idx % 3],
+        tags: [detectedTopic, 'comprehension']
       });
     }
 
-    return flashcards;
+    return flashcards.slice(0, count);
   };
 
   const handleGenerate = async () => {
