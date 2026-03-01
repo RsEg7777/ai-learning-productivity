@@ -27,16 +27,27 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
   const generateMockResult = (mode: string, fileName: string) => {
     const results: { [key: string]: any } = {
       handwriting: {
-        text: `Extracted Text from ${fileName}:\n\n"The quick brown fox jumps over the lazy dog. This is a sample handwritten text that has been successfully recognized by our AI system."\n\nConfidence: 95%\nLanguage: English\nWords detected: 18`,
-        explanation: 'The handwriting recognition system successfully identified the text with high accuracy. The writing style is clear and legible.'
+        text: `"The quick brown fox jumps over the lazy dog. This is a sample handwritten text that has been successfully recognized by our AI system."`,
+        confidence: '95%',
+        language: 'English',
+        wordsDetected: 18
       },
       diagram: {
-        explanation: `Diagram Analysis for ${fileName}:\n\nType: Flowchart\nComponents Detected:\n• 5 Process boxes\n• 3 Decision diamonds\n• 8 Connecting arrows\n• 2 Start/End terminals\n\nFlow Description:\nThis diagram represents a typical decision-making process with multiple conditional branches. The main flow starts from the top and branches based on specific conditions, eventually converging to a final outcome.\n\nKey Insights:\n• Clear logical structure\n• Well-organized layout\n• Multiple decision points\n• Proper use of standard flowchart symbols`,
-        components: ['Process boxes', 'Decision points', 'Connectors', 'Terminals']
+        type: 'Flowchart',
+        components: ['5 Process boxes', '3 Decision diamonds', '8 Connecting arrows', '2 Start/End terminals'],
+        description: 'This diagram represents a typical decision-making process with multiple conditional branches. The main flow starts from the top and branches based on specific conditions, eventually converging to a final outcome.',
+        insights: ['Clear logical structure', 'Well-organized layout', 'Multiple decision points', 'Proper use of standard flowchart symbols']
       },
       math: {
-        solution: `Mathematical Problem Solution:\n\nProblem: Solve the equation shown in the image\n\nStep 1: Identify the equation type\n• This appears to be a quadratic equation\n\nStep 2: Apply the quadratic formula\n• x = (-b ± √(b² - 4ac)) / 2a\n\nStep 3: Calculate the discriminant\n• Δ = b² - 4ac = 25\n\nStep 4: Find the solutions\n• x₁ = 3\n• x₂ = -2\n\nVerification: Both solutions satisfy the original equation.\n\nAnswer: x = 3 or x = -2`,
-        steps: ['Identify equation', 'Apply formula', 'Calculate', 'Verify']
+        problem: 'Solve the equation shown in the image',
+        steps: [
+          'Step 1: Identify the equation type - This appears to be a quadratic equation',
+          'Step 2: Apply the quadratic formula - x = (-b ± √(b² - 4ac)) / 2a',
+          'Step 3: Calculate the discriminant - Δ = b² - 4ac = 25',
+          'Step 4: Find the solutions - x₁ = 3, x₂ = -2'
+        ],
+        answer: 'x = 3 or x = -2',
+        verification: 'Both solutions satisfy the original equation'
       },
       screenshot: {
         quiz: [
@@ -53,7 +64,7 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
             options: ['Variables', 'Functions', 'Loops', 'Classes']
           }
         ],
-        summary: 'Generated 3 questions based on the screenshot content. Questions cover main topics, difficulty assessment, and key concepts.'
+        summary: 'Generated 3 questions based on the screenshot content'
       }
     };
 
@@ -249,44 +260,209 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
               padding: '1.5rem'
             }}
           >
-            <h3 style={{ color: 'var(--primary-light)', marginBottom: '1rem' }}>Results:</h3>
-            {result.error ? (
-              <p style={{ color: 'var(--error)' }}>{result.error}</p>
-            ) : (
-              <div style={{ color: 'var(--text-primary)' }}>
-                {result.text && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Extracted Text:</h4>
-                    <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{result.text}</p>
+            <h3 style={{ color: 'var(--primary-light)', marginBottom: '1.5rem', fontSize: '1.3rem' }}>
+              ✨ Results
+            </h3>
+
+            {/* Handwriting OCR Results */}
+            {mode === 'handwriting' && result.text && (
+              <div>
+                <div style={{ 
+                  marginBottom: '1.5rem',
+                  padding: '1.5rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--primary)'
+                }}>
+                  <h4 style={{ color: 'var(--primary)', marginBottom: '1rem', fontSize: '1.1rem' }}>
+                    📝 Extracted Text
+                  </h4>
+                  <p style={{ fontSize: '1.05rem', lineHeight: '1.8', color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                    {result.text}
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                    <div style={{ padding: '0.75rem', background: 'var(--bg-dark)', borderRadius: '8px' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Confidence</div>
+                      <div style={{ color: 'var(--success)', fontSize: '1.2rem', fontWeight: 'bold' }}>{result.confidence}</div>
+                    </div>
+                    <div style={{ padding: '0.75rem', background: 'var(--bg-dark)', borderRadius: '8px' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Language</div>
+                      <div style={{ color: 'var(--primary)', fontSize: '1.2rem', fontWeight: 'bold' }}>{result.language}</div>
+                    </div>
+                    <div style={{ padding: '0.75rem', background: 'var(--bg-dark)', borderRadius: '8px' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Words</div>
+                      <div style={{ color: 'var(--accent)', fontSize: '1.2rem', fontWeight: 'bold' }}>{result.wordsDetected}</div>
+                    </div>
                   </div>
-                )}
-                {result.explanation && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Explanation:</h4>
-                    <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{result.explanation}</p>
-                  </div>
-                )}
-                {result.solution && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Solution:</h4>
-                    <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{result.solution}</p>
-                  </div>
-                )}
-                {result.quiz && (
-                  <div>
-                    <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Generated Quiz:</h4>
-                    {result.quiz.map((q: any, i: number) => (
-                      <div key={i} style={{ marginBottom: '1rem', paddingLeft: '1rem', borderLeft: '2px solid var(--primary)' }}>
-                        <p style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>{i + 1}. {q.question}</p>
-                        {q.options?.map((opt: string, j: number) => (
-                          <p key={j} style={{ paddingLeft: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                            {String.fromCharCode(65 + j)}. {opt}
-                          </p>
-                        ))}
-                      </div>
+                </div>
+              </div>
+            )}
+
+            {/* Diagram Analysis Results */}
+            {mode === 'diagram' && result.type && (
+              <div>
+                <div style={{ 
+                  marginBottom: '1rem',
+                  padding: '1.5rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--primary)'
+                }}>
+                  <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>📊 Diagram Type</h4>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{result.type}</p>
+                </div>
+                <div style={{ 
+                  marginBottom: '1rem',
+                  padding: '1.5rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '10px'
+                }}>
+                  <h4 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>🔍 Components Detected</h4>
+                  <ul style={{ listStyle: 'none', padding: 0 }}>
+                    {result.components.map((comp: string, i: number) => (
+                      <li key={i} style={{ padding: '0.5rem 0', color: 'var(--text-primary)', fontSize: '1rem' }}>
+                        • {comp}
+                      </li>
                     ))}
+                  </ul>
+                </div>
+                <div style={{ 
+                  marginBottom: '1rem',
+                  padding: '1.5rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '10px'
+                }}>
+                  <h4 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>💡 Description</h4>
+                  <p style={{ lineHeight: '1.8', color: 'var(--text-primary)' }}>{result.description}</p>
+                </div>
+                <div style={{ 
+                  padding: '1.5rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '10px'
+                }}>
+                  <h4 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>✨ Key Insights</h4>
+                  <ul style={{ listStyle: 'none', padding: 0 }}>
+                    {result.insights.map((insight: string, i: number) => (
+                      <li key={i} style={{ padding: '0.5rem 0', color: 'var(--text-primary)' }}>
+                        ✓ {insight}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Math Solver Results */}
+            {mode === 'math' && result.problem && (
+              <div>
+                <div style={{ 
+                  marginBottom: '1rem',
+                  padding: '1.5rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--primary)'
+                }}>
+                  <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>🔢 Problem</h4>
+                  <p style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>{result.problem}</p>
+                </div>
+                <div style={{ 
+                  marginBottom: '1rem',
+                  padding: '1.5rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '10px'
+                }}>
+                  <h4 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>📝 Solution Steps</h4>
+                  {result.steps.map((step: string, i: number) => (
+                    <div key={i} style={{ 
+                      padding: '1rem',
+                      marginBottom: '0.75rem',
+                      background: 'var(--bg-dark)',
+                      borderRadius: '8px',
+                      borderLeft: '3px solid var(--primary)'
+                    }}>
+                      <p style={{ color: 'var(--text-primary)', lineHeight: '1.6' }}>{step}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ 
+                  marginBottom: '1rem',
+                  padding: '1.5rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '10px',
+                  border: '2px solid var(--success)'
+                }}>
+                  <h4 style={{ color: 'var(--success)', marginBottom: '0.5rem' }}>✅ Answer</h4>
+                  <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{result.answer}</p>
+                </div>
+                <div style={{ 
+                  padding: '1rem',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--success)'
+                }}>
+                  <p style={{ color: 'var(--success)', fontSize: '0.95rem' }}>
+                    ✓ {result.verification}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Screenshot to Quiz Results */}
+            {mode === 'screenshot' && result.quiz && (
+              <div>
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '8px' }}>
+                  <p style={{ color: 'var(--primary)', fontSize: '1rem' }}>
+                    📝 {result.summary}
+                  </p>
+                </div>
+                {result.quiz.map((q: any, i: number) => (
+                  <div 
+                    key={i} 
+                    style={{ 
+                      marginBottom: '1.5rem', 
+                      padding: '1.5rem',
+                      background: 'var(--bg-card)',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border)'
+                    }}
+                  >
+                    <p style={{ 
+                      fontWeight: 'bold', 
+                      marginBottom: '1rem',
+                      fontSize: '1.05rem',
+                      color: 'var(--text-primary)'
+                    }}>
+                      {i + 1}. {q.question}
+                    </p>
+                    <div style={{ display: 'grid', gap: '0.75rem' }}>
+                      {q.options?.map((opt: string, j: number) => (
+                        <div 
+                          key={j} 
+                          style={{ 
+                            padding: '1rem',
+                            background: 'var(--bg-dark)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '8px',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.95rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--primary)';
+                            e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                            e.currentTarget.style.background = 'var(--bg-dark)';
+                          }}
+                        >
+                          <strong style={{ color: 'var(--primary)' }}>{String.fromCharCode(65 + j)}.</strong> {opt}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
             )}
           </motion.div>

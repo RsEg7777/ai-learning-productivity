@@ -210,12 +210,30 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
                 {question.text}
               </p>
               
-              {question.options && question.options.length > 0 && (
+              {question.options && question.options.length > 0 ? (
                 <ul className="options">
                   {question.options.map((option, i) => (
                     <li key={i}>{option}</li>
                   ))}
                 </ul>
+              ) : (
+                <div style={{ marginTop: '1rem' }}>
+                  <textarea
+                    placeholder="Type your answer here..."
+                    rows={4}
+                    style={{
+                      width: '100%',
+                      padding: '1rem',
+                      background: 'var(--bg-dark)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.95rem',
+                      fontFamily: 'inherit',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
               )}
               
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '1rem' }}>

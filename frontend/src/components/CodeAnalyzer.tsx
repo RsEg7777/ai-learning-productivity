@@ -15,10 +15,11 @@ const CodeAnalyzer: React.FC<CodeAnalyzerProps> = ({ authToken }) => {
   const API_URL = process.env.REACT_APP_API_URL || '';
 
   const generateMockAnalysis = (code: string, language: string) => {
-    return `Code Analysis for ${language.toUpperCase()}:
+    const lines = code.split('\n').length;
+    return `📊 Code Analysis for ${language.toUpperCase()}
 
-📊 Overview:
-Your code demonstrates ${code.split('\n').length} lines of ${language} code. Here's a comprehensive analysis:
+Overview:
+Your code contains ${lines} line${lines !== 1 ? 's' : ''} of ${language} code. Here's a comprehensive analysis:
 
 ✅ Strengths:
 • Clear variable naming conventions
@@ -31,9 +32,15 @@ Your code demonstrates ${code.split('\n').length} lines of ${language} code. Her
 • Performance optimization opportunities exist
 
 🔍 Detailed Analysis:
-1. Code Structure: The overall organization is good, following ${language} best practices.
-2. Readability: Code is generally readable, but could benefit from more descriptive variable names in some areas.
-3. Efficiency: The algorithm has a time complexity that could be optimized.
+
+1. Code Structure
+   The overall organization is good, following ${language} best practices.
+
+2. Readability
+   Code is generally readable, but could benefit from more descriptive variable names in some areas.
+
+3. Efficiency
+   The algorithm has a time complexity that could be optimized.
 
 💡 Suggestions:
 • Add type hints (for Python) or proper type declarations
@@ -41,11 +48,12 @@ Your code demonstrates ${code.split('\n').length} lines of ${language} code. Her
 • Consider breaking down complex functions into smaller, reusable components
 • Add unit tests for better code coverage
 
-🎯 Complexity Score: Medium
-📈 Maintainability: Good
-🔒 Security: Review needed for input validation
+📈 Metrics:
+• Complexity Score: Medium
+• Maintainability: Good
+• Security: Review needed for input validation
 
-This is a demo analysis. For production use, connect to the AWS Bedrock API for AI-powered code analysis.`;
+Note: This is a demo analysis. For production use, connect to the AWS Bedrock API for AI-powered code analysis.`;
   };
 
   const handleAnalyze = async () => {
