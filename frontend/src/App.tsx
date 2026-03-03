@@ -11,6 +11,7 @@ import MultimodalProcessor from './components/MultimodalProcessor';
 import StudyTimer from './components/StudyTimer';
 import ProgressTracker from './components/ProgressTracker';
 import Login from './components/Login';
+import CustomCursor from './components/CustomCursor';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
@@ -56,17 +57,13 @@ function App() {
 
   // Check for stored token on mount
   useEffect(() => {
-    // Check for OAuth token in URL hash (from Google login redirect)
     const hash = window.location.hash;
     if (hash) {
       const params = new URLSearchParams(hash.substring(1));
       const idToken = params.get('id_token');
       
       if (idToken) {
-        // Store token and authenticate
         localStorage.setItem('authToken', idToken);
-        
-        // Try to extract username from token (basic JWT decode)
         try {
           const payload = JSON.parse(atob(idToken.split('.')[1]));
           const email = payload.email || payload['cognito:username'] || 'User';
@@ -80,22 +77,17 @@ function App() {
         
         setAuthToken(idToken);
         setIsAuthenticated(true);
-        
-        // Clean up URL
         window.history.replaceState(null, '', window.location.pathname);
         return;
       }
     }
     
-    // Check for stored token
     const storedToken = localStorage.getItem('authToken');
     const storedUsername = localStorage.getItem('username');
     if (storedToken) {
       setAuthToken(storedToken);
       setIsAuthenticated(true);
-      if (storedUsername) {
-        setUsername(storedUsername);
-      }
+      if (storedUsername) setUsername(storedUsername);
     }
   }, []);
 
@@ -115,7 +107,6 @@ function App() {
   if (!isAuthenticated) {
     return (
       <>
-        <div className="scan-line" />
         <Login onLogin={handleLogin} />
       </>
     );
@@ -123,7 +114,7 @@ function App() {
 
   return (
     <div className="App">
-      <div className="scan-line" />
+      <CustomCursor />
       <motion.header 
         className="App-header"
         variants={headerVariants}
