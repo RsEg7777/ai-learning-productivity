@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import VoiceInput from './VoiceInput';
 
 interface Note {
   id: string;
@@ -105,6 +106,21 @@ const NoteTaker: React.FC = () => {
     });
 
   const wordCount = notes.reduce((sum, n) => sum + n.content.split(/\s+/).filter(Boolean).length, 0);
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    if (editingNote) {
+      setEditingNote(prev => {
+        if (!prev) return prev;
+        const needsSpace = prev.content.length > 0 && !prev.content.endsWith(' ') && !prev.content.endsWith('\n');
+        return { ...prev, content: prev.content + (needsSpace ? ' ' : '') + text };
+      });
+    } else {
+      setNewNote(prev => {
+        const needsSpace = prev.content.length > 0 && !prev.content.endsWith(' ') && !prev.content.endsWith('\n');
+        return { ...prev, content: prev.content + (needsSpace ? ' ' : '') + text };
+      });
+    }
+  }, [editingNote]);
 
   return (
     <motion.div
@@ -228,8 +244,13 @@ const NoteTaker: React.FC = () => {
               overflow: 'hidden'
             }}
           >
-            <h3 style={{ color: 'var(--text-primary)', marginBottom: '1rem' }}>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               {editingNote ? '✏️ Edit Note' : '📝 New Note'}
+              <VoiceInput
+                onTranscript={handleVoiceTranscript}
+                variant="standalone"
+                placeholder="Dictate your notes..."
+              />
             </h3>
             <div className="form-group" style={{ marginBottom: '0.75rem' }}>
               <input

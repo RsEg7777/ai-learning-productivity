@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import VoiceInput from './VoiceInput';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -54,6 +55,13 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
   const [teachingStyle, setTeachingStyle] = useState('socratic');
   const [isDemo, setIsDemo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInputText(prev => {
+      const needsSpace = prev.length > 0 && !prev.endsWith(' ');
+      return prev + (needsSpace ? ' ' : '') + text;
+    });
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -315,6 +323,10 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
             color: 'var(--text-primary)',
             fontSize: '0.95rem',
           }}
+        />
+        <VoiceInput
+          onTranscript={handleVoiceTranscript}
+          disabled={loading}
         />
         <button
           type="submit"

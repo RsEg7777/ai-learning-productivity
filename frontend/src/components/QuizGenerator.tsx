@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import VoiceInput from './VoiceInput';
 
 interface QuizGeneratorProps {
   authToken: string;
@@ -29,6 +30,13 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
   const [quiz, setQuiz] = useState<QuizResponse | null>(null);
 
   const API_URL = process.env.REACT_APP_API_URL || '';
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setContent(prev => {
+      const needsSpace = prev.length > 0 && !prev.endsWith(' ') && !prev.endsWith('\n');
+      return prev + (needsSpace ? ' ' : '') + text;
+    });
+  }, []);
 
   const generateMockQuiz = (content: string, count: number): QuizResponse => {
     const questions: Question[] = [];
@@ -189,11 +197,17 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = ({ authToken }) => {
       {error && <div className="error">{error}</div>}
 
       <div className="form-group">
-        <label>Content to Generate Quiz From:</label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          Content to Generate Quiz From:
+          <VoiceInput
+            onTranscript={handleVoiceTranscript}
+            disabled={loading}
+          />
+        </label>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Paste your learning content here... (e.g., lecture notes, article, documentation)"
+          placeholder="Paste your learning content here, or use the 🎤 mic to dictate..."
           rows={10}
         />
       </div>
