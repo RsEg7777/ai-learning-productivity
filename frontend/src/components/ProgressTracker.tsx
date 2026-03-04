@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface ProgressTrackerProps {
@@ -15,36 +15,57 @@ interface LearningGoal {
   deadline?: string;
 }
 
+const defaultGoals: LearningGoal[] = [
+  {
+    id: '1',
+    title: 'Master Python Basics',
+    description: 'Complete 50 Python exercises',
+    progress: 32,
+    target: 50,
+    category: 'Programming',
+    deadline: '2026-04-01'
+  },
+  {
+    id: '2',
+    title: 'Data Structures & Algorithms',
+    description: 'Solve 100 DSA problems',
+    progress: 45,
+    target: 100,
+    category: 'Computer Science',
+    deadline: '2026-05-15'
+  },
+  {
+    id: '3',
+    title: 'Web Development',
+    description: 'Build 5 full-stack projects',
+    progress: 2,
+    target: 5,
+    category: 'Development',
+    deadline: '2026-06-30'
+  }
+];
+
+const loadGoals = (): LearningGoal[] => {
+  try {
+    const saved = localStorage.getItem('learningGoals');
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.warn('Failed to load goals from localStorage:', e);
+  }
+  return defaultGoals;
+};
+
 const ProgressTracker: React.FC<ProgressTrackerProps> = ({ authToken }) => {
-  const [goals, setGoals] = useState<LearningGoal[]>([
-    {
-      id: '1',
-      title: 'Master Python Basics',
-      description: 'Complete 50 Python exercises',
-      progress: 32,
-      target: 50,
-      category: 'Programming',
-      deadline: '2026-04-01'
-    },
-    {
-      id: '2',
-      title: 'Data Structures & Algorithms',
-      description: 'Solve 100 DSA problems',
-      progress: 45,
-      target: 100,
-      category: 'Computer Science',
-      deadline: '2026-05-15'
-    },
-    {
-      id: '3',
-      title: 'Web Development',
-      description: 'Build 5 full-stack projects',
-      progress: 2,
-      target: 5,
-      category: 'Development',
-      deadline: '2026-06-30'
+  const [goals, setGoals] = useState<LearningGoal[]>(loadGoals);
+
+  // Persist goals to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('learningGoals', JSON.stringify(goals));
+    } catch (e) {
+      console.warn('Failed to save goals to localStorage:', e);
     }
-  ]);
+  }, [goals]);
 
   const [newGoal, setNewGoal] = useState({
     title: '',
@@ -82,7 +103,7 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ authToken }) => {
   const updateProgress = (id: string, increment: number) => {
     setGoals(goals.map(goal => {
       if (goal.id === id) {
-        const newProgress = Math.min(goal.progress + increment, goal.target);
+        const newProgress = Math.max(0, Math.min(goal.progress + increment, goal.target));
         return { ...goal, progress: newProgress };
       }
       return goal;

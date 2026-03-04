@@ -38,6 +38,16 @@ const StudyTimer: React.FC<StudyTimerProps> = ({ authToken }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, minutes, seconds]);
 
+  const sendNotification = (title: string, body: string) => {
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body });
+      }
+    } catch (e) {
+      console.warn('Notification failed:', e);
+    }
+  };
+
   const handleTimerComplete = () => {
     setIsActive(false);
     if (mode === 'work') {
@@ -45,22 +55,22 @@ const StudyTimer: React.FC<StudyTimerProps> = ({ authToken }) => {
       setMode('break');
       setMinutes(5);
       setSeconds(0);
-      new Notification('Study Session Complete!', {
-        body: 'Time for a 5-minute break!',
-      });
+      sendNotification('Study Session Complete!', 'Time for a 5-minute break!');
     } else {
       setMode('work');
       setMinutes(25);
       setSeconds(0);
-      new Notification('Break Complete!', {
-        body: 'Ready for another study session?',
-      });
+      sendNotification('Break Complete!', 'Ready for another study session?');
     }
   };
 
   const toggleTimer = () => {
-    if (!isActive && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    try {
+      if (!isActive && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    } catch (e) {
+      console.warn('Notification permission request failed:', e);
     }
     setIsActive(!isActive);
   };

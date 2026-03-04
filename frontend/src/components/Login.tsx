@@ -124,6 +124,41 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </motion.div>
         )}
 
+        {/* Guest / Demo Mode Button */}
+        <motion.button
+          onClick={() => {
+            const guestToken = 'guest_' + Date.now();
+            localStorage.setItem('authToken', guestToken);
+            localStorage.setItem('username', 'Guest');
+            onLogin(guestToken);
+          }}
+          className="btn-guest"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35, duration: 0.6 }}
+          whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(16,185,129,0.35)' }}
+          whileTap={{ scale: 0.98 }}
+          style={{
+            width: '100%',
+            padding: '1rem',
+            marginBottom: '1rem',
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(6,182,212,0.15) 100%)',
+            border: '2px solid rgba(16,185,129,0.4)',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#10b981',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem',
+            transition: 'all 0.3s ease'
+          }}
+        >
+          🚀 Continue as Guest (Demo Mode)
+        </motion.button>
+
         {/* Google Sign-In Button */}
         <motion.button
           onClick={handleGoogleLogin}

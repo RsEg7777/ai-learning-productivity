@@ -12,6 +12,38 @@ interface AITutorChatProps {
   authToken: string;
 }
 
+const getDemoResponse = (question: string): { answer: string; follow_up_questions: string[] } => {
+  const q = question.toLowerCase();
+  if (q.includes('python') || q.includes('code') || q.includes('program')) {
+    return {
+      answer: `Great question about programming! Here's what you should know:\n\n**Key Concepts:**\n1. Python uses indentation to define code blocks\n2. Variables are dynamically typed\n3. Functions are defined with the \`def\` keyword\n\n**Example:**\n\`\`\`python\ndef greet(name):\n    return f"Hello, {name}!"\n\nprint(greet("World"))\n\`\`\`\n\nThis is a demo response — connect to the API for real AI-powered tutoring!`,
+      follow_up_questions: [
+        'What are Python data types?',
+        'How do loops work in Python?',
+        'What is object-oriented programming?',
+      ],
+    };
+  }
+  if (q.includes('math') || q.includes('calculus') || q.includes('algebra')) {
+    return {
+      answer: `Let me help you with mathematics!\n\n**Approach:**\n1. Identify what type of problem this is\n2. Recall the relevant formulas\n3. Work step by step\n\nMathematics is all about practice and understanding the fundamentals. This is a demo response — connect to the API for full AI tutoring.`,
+      follow_up_questions: [
+        'Can you explain derivatives?',
+        'What is the quadratic formula?',
+        'How do matrices work?',
+      ],
+    };
+  }
+  return {
+    answer: `That's an interesting topic! Here's a structured way to think about it:\n\n1. **Break it down** into smaller concepts\n2. **Find connections** to things you already know\n3. **Practice** with examples\n4. **Test yourself** with quizzes\n\nThis is a demo response. Connect the API backend for real AI-powered answers!`,
+    follow_up_questions: [
+      'Can you explain this in simpler terms?',
+      'What are some practical examples?',
+      'How does this relate to other topics?',
+    ],
+  };
+};
+
 const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
   const apiUrl = process.env.REACT_APP_API_URL || '';
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -20,6 +52,7 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
   const [loading, setLoading] = useState(false);
   const [subject, setSubject] = useState('');
   const [teachingStyle, setTeachingStyle] = useState('socratic');
+  const [isDemo, setIsDemo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -31,8 +64,20 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
   }, [messages]);
 
   const startSession = async () => {
+    setLoading(true);
+    // If no API URL, go straight to demo mode
+    if (!apiUrl) {
+      setSessionId('demo_' + Date.now());
+      setIsDemo(true);
+      setMessages([{
+        role: 'assistant',
+        content: `Hello! I'm your AI tutor (demo mode). I'm here to help you learn${subject ? ` about ${subject}` : ''}. Ask me anything and I'll do my best to help!`,
+        timestamp: new Date().toISOString(),
+      }]);
+      setLoading(false);
+      return;
+    }
     try {
-      setLoading(true);
       const response = await fetch(`${apiUrl}/tutor/start-session`, {
         method: 'POST',
         headers: {
@@ -56,8 +101,14 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
         timestamp: new Date().toISOString(),
       }]);
     } catch (error) {
-      console.error('Error starting session:', error);
-      alert('Failed to start tutor session');
+      console.error('Error starting session, falling back to demo:', error);
+      setSessionId('demo_' + Date.now());
+      setIsDemo(true);
+      setMessages([{
+        role: 'assistant',
+        content: `Hello! I'm your AI tutor (demo mode — API unavailable). Ask me anything!`,
+        timestamp: new Date().toISOString(),
+      }]);
     } finally {
       setLoading(false);
     }
@@ -74,6 +125,20 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setLoading(true);
+
+    // Demo mode — simulate a response
+    if (isDemo || !apiUrl) {
+      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700));
+      const demo = getDemoResponse(question);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: demo.answer,
+        timestamp: new Date().toISOString(),
+        followUpQuestions: demo.follow_up_questions,
+      }]);
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch(`${apiUrl}/tutor/ask-question`, {
@@ -101,7 +166,13 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error asking question:', error);
-      alert('Failed to get response');
+      const demo = getDemoResponse(question);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: demo.answer + '\n\n_(Offline mode — API unavailable)_',
+        timestamp: new Date().toISOString(),
+        followUpQuestions: demo.follow_up_questions,
+      }]);
     } finally {
       setLoading(false);
     }

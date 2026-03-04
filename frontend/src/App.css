@@ -36,9 +36,15 @@
   --font-mono:        'JetBrains Mono', monospace;
 
   --header-h:         72px;
+
+  /* Aliases used by components */
+  --bg-dark:           var(--bg-surface);
+  --bg-darker:         var(--bg-base);
+  --bg-card:           var(--bg-elevated);
+  --border:            var(--border-default);
 }
 
-* {
+*
   margin: 0;
   padding: 0;
   box-sizing: border-box;

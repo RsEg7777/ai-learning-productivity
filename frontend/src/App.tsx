@@ -10,6 +10,7 @@ import GamificationDashboard from './components/GamificationDashboard';
 import MultimodalProcessor from './components/MultimodalProcessor';
 import StudyTimer from './components/StudyTimer';
 import ProgressTracker from './components/ProgressTracker';
+import NoteTaker from './components/NoteTaker';
 import Login from './components/Login';
 import CustomCursor from './components/CustomCursor';
 
@@ -185,6 +186,7 @@ function App() {
           { id: 'playground', label: '💻 Code Playground', icon: '💻' },
           { id: 'gamification', label: '🎮 Gamification', icon: '🎮' },
           { id: 'multimodal', label: '🖼️ Multimodal AI', icon: '🖼️' },
+          { id: 'notes', label: '📓 Notes', icon: '📓' },
           { id: 'quiz', label: '📝 Quiz', icon: '📝' },
           { id: 'flashcards', label: '🎴 Flashcards', icon: '🎴' },
           { id: 'code', label: '🔍 Code Analysis', icon: '🔍' }
@@ -221,6 +223,7 @@ function App() {
             {activeTab === 'playground' && <CodePlayground authToken={authToken} />}
             {activeTab === 'gamification' && <GamificationDashboard authToken={authToken} />}
             {activeTab === 'multimodal' && <MultimodalProcessor authToken={authToken} />}
+            {activeTab === 'notes' && <NoteTaker />}
             {activeTab === 'quiz' && <QuizGenerator authToken={authToken} />}
             {activeTab === 'flashcards' && <FlashcardGenerator authToken={authToken} />}
             {activeTab === 'code' && <CodeAnalyzer authToken={authToken} />}
