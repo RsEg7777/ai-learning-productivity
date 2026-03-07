@@ -542,11 +542,12 @@ async def generate_flashcards(req: FlashcardRequest):
 class CodeExecutionRequest(BaseModel):
     code: str
     language: str = "python"
+    input: Optional[str] = None
 
 
 @app.post("/playground/execute")
 async def execute_code(req: CodeExecutionRequest):
-    """Execute code and provide AI suggestions."""
+    """Execute code and provide AI suggestions with input support."""
     if not services_initialized or not code_analyzer:
         raise HTTPException(
             status_code=503,
@@ -558,10 +559,15 @@ async def execute_code(req: CodeExecutionRequest):
         
         bedrock_client = BedrockClient(region=AWS_REGION)
         
+        # Build prompt with input handling
+        input_context = ""
+        if req.input:
+            input_context = f"\nUser Input (provided):\n{req.input}\n"
+        
         # Use AI to analyze the code and provide execution simulation
         prompt = f"""Analyze this {req.language} code and provide:
 1. What the code does
-2. Expected output when executed
+2. Expected output when executed{' with the provided input' if req.input else ''}
 3. Any syntax errors or runtime errors
 4. AI suggestions for improvement
 
@@ -569,13 +575,18 @@ Code:
 ```{req.language}
 {req.code}
 ```
+{input_context}
+
+If the code requires input and input is provided, simulate the execution with that input.
+If the code requires input but none is provided, mention that input is needed.
 
 Respond in JSON format:
 {{
     "has_errors": boolean,
     "errors": ["list of errors if any"],
-    "output": "expected output",
-    "ai_suggestion": "suggestions for improvement"
+    "output": "expected output or error message",
+    "ai_suggestion": "suggestions for improvement",
+    "requires_input": boolean
 }}"""
         
         response = bedrock_client.invoke_claude(prompt)
@@ -590,7 +601,17 @@ Respond in JSON format:
                 "has_errors": False,
                 "errors": [],
                 "output": "Code analyzed successfully",
-                "ai_suggestion": response
+                "ai_suggestion": response,
+                "requires_input": False
+            }
+        
+        # If code requires input but none provided
+        if result.get("requires_input") and not req.input:
+            return {
+                "success": False,
+                "error": "This code requires input. Please provide input values.",
+                "requires_input": True,
+                "ai_explanation": "Your code uses input functions. Please provide the input values before running."
             }
         
         return {
