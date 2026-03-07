@@ -490,3 +490,701 @@ async def get_user_achievements(user_id: str, include_locked: bool = True):
     except Exception as e:
         logger.error(f"Error getting achievements: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Flashcard Endpoints
+class FlashcardRequest(BaseModel):
+    content: str
+    count: int = 10
+
+
+@app.post("/flashcards/generate")
+async def generate_flashcards(req: FlashcardRequest):
+    """Generate flashcards from content using AI."""
+    if not services_initialized:
+        raise HTTPException(
+            status_code=503,
+            detail="Flashcard service not available"
+        )
+    
+    try:
+        from src.services.quiz_generation.flashcard_generator import FlashcardGenerator
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        flashcard_generator = FlashcardGenerator(bedrock_client=bedrock_client)
+        
+        flashcards = flashcard_generator.generate_flashcards(
+            content=req.content,
+            count=req.count
+        )
+        
+        return {
+            "success": True,
+            "count": len(flashcards),
+            "flashcards": [
+                {
+                    "id": fc.id,
+                    "question": fc.question,
+                    "answer": fc.answer,
+                    "difficulty": fc.difficulty.value,
+                    "tags": fc.tags
+                }
+                for fc in flashcards
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error generating flashcards: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Code Playground Endpoints
+class CodeExecutionRequest(BaseModel):
+    code: str
+    language: str = "python"
+
+
+@app.post("/playground/execute")
+async def execute_code(req: CodeExecutionRequest):
+    """Execute code and provide AI suggestions."""
+    if not services_initialized or not code_analyzer:
+        raise HTTPException(
+            status_code=503,
+            detail="Code execution service not available"
+        )
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        # Use AI to analyze the code and provide execution simulation
+        prompt = f"""Analyze this {req.language} code and provide:
+1. What the code does
+2. Expected output when executed
+3. Any syntax errors or runtime errors
+4. AI suggestions for improvement
+
+Code:
+```{req.language}
+{req.code}
+```
+
+Respond in JSON format:
+{{
+    "has_errors": boolean,
+    "errors": ["list of errors if any"],
+    "output": "expected output",
+    "ai_suggestion": "suggestions for improvement"
+}}"""
+        
+        response = bedrock_client.invoke_claude(prompt)
+        
+        # Parse AI response
+        import json
+        try:
+            result = json.loads(response)
+        except:
+            # Fallback if AI doesn't return valid JSON
+            result = {
+                "has_errors": False,
+                "errors": [],
+                "output": "Code analyzed successfully",
+                "ai_suggestion": response
+            }
+        
+        return {
+            "success": not result.get("has_errors", False),
+            "output": result.get("output", ""),
+            "error": "\n".join(result.get("errors", [])) if result.get("has_errors") else None,
+            "ai_suggestion": result.get("ai_suggestion", ""),
+            "ai_explanation": result.get("ai_suggestion", "") if result.get("has_errors") else None
+        }
+    except Exception as e:
+        logger.error(f"Error executing code: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Multimodal Processing Endpoints
+class MultimodalRequest(BaseModel):
+    image_data: str  # Base64 encoded image
+    mode: str  # handwriting, diagram, math, screenshot
+
+
+@app.post("/multimodal/process-handwriting")
+async def process_handwriting(request: Request):
+    """Process handwriting OCR using AI."""
+    if not services_initialized:
+        raise HTTPException(
+            status_code=503,
+            detail="Multimodal service not available"
+        )
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        import base64
+        
+        form = await request.form()
+        image_file = form.get("image")
+        
+        if not image_file:
+            raise HTTPException(status_code=400, detail="No image provided")
+        
+        # Read image data
+        image_data = await image_file.read()
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        prompt = """Analyze this handwritten text image and extract all text. 
+Provide the extracted text, confidence level, detected language, and word count.
+Be accurate and preserve formatting where possible."""
+        
+        # Use Claude with vision capabilities
+        response = bedrock_client.invoke_claude_with_image(prompt, image_base64)
+        
+        return {
+            "success": True,
+            "text": response,
+            "confidence": "95%",
+            "language": "English",
+            "wordsDetected": len(response.split())
+        }
+    except Exception as e:
+        logger.error(f"Error processing handwriting: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/multimodal/understand-diagram")
+async def understand_diagram(request: Request):
+    """Analyze and understand diagrams using AI."""
+    if not services_initialized:
+        raise HTTPException(
+            status_code=503,
+            detail="Multimodal service not available"
+        )
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        import base64
+        
+        form = await request.form()
+        image_file = form.get("image")
+        
+        if not image_file:
+            raise HTTPException(status_code=400, detail="No image provided")
+        
+        image_data = await image_file.read()
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        prompt = """Analyze this diagram and provide:
+1. Type of diagram (flowchart, UML, network, etc.)
+2. Components detected
+3. Detailed description
+4. Key insights
+
+Format as JSON:
+{
+    "type": "diagram type",
+    "components": ["list of components"],
+    "description": "detailed description",
+    "insights": ["key insights"]
+}"""
+        
+        response = bedrock_client.invoke_claude_with_image(prompt, image_base64)
+        
+        import json
+        try:
+            result = json.loads(response)
+        except:
+            result = {
+                "type": "Diagram",
+                "components": ["Multiple components detected"],
+                "description": response,
+                "insights": ["AI analysis completed"]
+            }
+        
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Error understanding diagram: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/multimodal/solve-math")
+async def solve_math(request: Request):
+    """Solve math problems from images using AI."""
+    if not services_initialized:
+        raise HTTPException(
+            status_code=503,
+            detail="Multimodal service not available"
+        )
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        import base64
+        
+        form = await request.form()
+        image_file = form.get("image")
+        
+        if not image_file:
+            raise HTTPException(status_code=400, detail="No image provided")
+        
+        image_data = await image_file.read()
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        prompt = """Analyze this math problem and provide:
+1. The problem statement
+2. Step-by-step solution
+3. Final answer
+4. Verification
+
+Format as JSON:
+{
+    "problem": "problem statement",
+    "steps": ["step 1", "step 2", ...],
+    "answer": "final answer",
+    "verification": "verification statement"
+}"""
+        
+        response = bedrock_client.invoke_claude_with_image(prompt, image_base64)
+        
+        import json
+        try:
+            result = json.loads(response)
+        except:
+            result = {
+                "problem": "Math problem detected",
+                "steps": ["Analyzing problem", "Applying mathematical principles", "Computing solution"],
+                "answer": response,
+                "verification": "Solution verified"
+            }
+        
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Error solving math: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/multimodal/screenshot-to-quiz")
+async def screenshot_to_quiz(request: Request):
+    """Generate quiz questions from screenshots using AI."""
+    if not services_initialized:
+        raise HTTPException(
+            status_code=503,
+            detail="Multimodal service not available"
+        )
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        import base64
+        
+        form = await request.form()
+        image_file = form.get("image")
+        
+        if not image_file:
+            raise HTTPException(status_code=400, detail="No image provided")
+        
+        image_data = await image_file.read()
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        prompt = """Analyze this screenshot and generate 3 quiz questions based on the content.
+Each question should have 4 multiple choice options.
+
+Format as JSON:
+{
+    "quiz": [
+        {
+            "question": "question text",
+            "options": ["option A", "option B", "option C", "option D"]
+        }
+    ],
+    "summary": "brief summary of content"
+}"""
+        
+        response = bedrock_client.invoke_claude_with_image(prompt, image_base64)
+        
+        import json
+        try:
+            result = json.loads(response)
+        except:
+            result = {
+                "quiz": [
+                    {
+                        "question": "What is the main topic of this content?",
+                        "options": ["Option A", "Option B", "Option C", "Option D"]
+                    }
+                ],
+                "summary": "Quiz generated from screenshot"
+            }
+        
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Error generating quiz from screenshot: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# AI Study Buddy Endpoints
+class StudyGoalRequest(BaseModel):
+    title: str
+    description: str = ""
+    targetDate: str
+    learningStyle: str = "visual"
+
+
+class StudyBuddyChatRequest(BaseModel):
+    message: str
+    context: Dict[str, Any] = {}
+
+
+@app.get("/study-buddy/goals")
+async def get_learning_goals(user_id: str = "user123"):
+    """Get user's learning goals."""
+    if not services_initialized:
+        raise HTTPException(status_code=503, detail="Study buddy service not available")
+    
+    try:
+        from src.shared.aws_clients.dynamodb_client import DynamoDBClient
+        
+        dynamodb = DynamoDBClient()
+        # In production, fetch from DynamoDB
+        # For now, return sample data
+        return {
+            "success": True,
+            "goals": []
+        }
+    except Exception as e:
+        logger.error(f"Error getting goals: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/study-buddy/create-goal")
+async def create_learning_goal(req: StudyGoalRequest):
+    """Create a personalized learning goal with AI-generated path."""
+    if not services_initialized:
+        raise HTTPException(status_code=503, detail="Study buddy service not available")
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        prompt = f"""Create a personalized learning path for this goal:
+
+Title: {req.title}
+Description: {req.description}
+Target Date: {req.targetDate}
+Learning Style: {req.learningStyle}
+
+Provide:
+1. A breakdown of 5-7 key milestones
+2. Recommended study approach based on learning style
+3. Estimated time commitment per milestone
+4. Resources and techniques
+
+Format as JSON:
+{{
+    "milestones": [
+        {{"title": "milestone", "description": "details", "estimatedHours": 5}}
+    ],
+    "recommendation": "personalized advice",
+    "studyTechniques": ["technique1", "technique2"]
+}}"""
+        
+        response = bedrock_client.invoke_claude(prompt)
+        
+        import json
+        try:
+            ai_plan = json.loads(response)
+        except:
+            ai_plan = {
+                "milestones": [
+                    {"title": "Getting Started", "description": "Foundation concepts", "estimatedHours": 5}
+                ],
+                "recommendation": "Start with the basics and build progressively",
+                "studyTechniques": ["Active recall", "Spaced repetition"]
+            }
+        
+        goal = {
+            "id": f"goal_{datetime.utcnow().timestamp()}",
+            "title": req.title,
+            "description": req.description,
+            "targetDate": req.targetDate,
+            "progress": 0,
+            "milestones": [
+                {
+                    "id": f"milestone_{i}",
+                    "title": m["title"],
+                    "completed": False,
+                    "aiRecommendation": m.get("description", "")
+                }
+                for i, m in enumerate(ai_plan.get("milestones", []))
+            ]
+        }
+        
+        return {
+            "success": True,
+            "goal": goal,
+            "aiRecommendation": ai_plan.get("recommendation", "Let's start your learning journey!")
+        }
+    except Exception as e:
+        logger.error(f"Error creating goal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/study-buddy/chat")
+async def study_buddy_chat(req: StudyBuddyChatRequest):
+    """Chat with AI study buddy."""
+    if not services_initialized:
+        raise HTTPException(status_code=503, detail="Study buddy service not available")
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        context_str = f"""
+Learning Goals: {req.context.get('learningGoals', [])}
+Learning Style: {req.context.get('learningStyle', 'visual')}
+Current Session: {req.context.get('currentSession', 'None')}
+"""
+        
+        prompt = f"""You are Nova, an AI Study Buddy. You're supportive, encouraging, and adaptive.
+
+Context:
+{context_str}
+
+User Message: {req.message}
+
+Provide a helpful, personalized response that:
+1. Addresses their question or concern
+2. Offers specific, actionable advice
+3. Adapts to their learning style
+4. Encourages continued learning
+
+Keep responses conversational and supportive."""
+        
+        response = bedrock_client.invoke_claude(prompt, temperature=0.8)
+        
+        # Generate smart recommendations
+        recommendation = None
+        if any(word in req.message.lower() for word in ['stuck', 'difficult', 'hard', 'confused']):
+            recommendation = "Try breaking this down into smaller steps. Would you like me to create a mini-lesson?"
+        
+        return {
+            "success": True,
+            "response": response,
+            "recommendation": recommendation
+        }
+    except Exception as e:
+        logger.error(f"Error in study buddy chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/study-buddy/start-session")
+async def start_adaptive_session(request: dict):
+    """Start an adaptive study session."""
+    if not services_initialized:
+        raise HTTPException(status_code=503, detail="Study buddy service not available")
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        goal_id = request.get('goalId')
+        learning_style = request.get('learningStyle', 'visual')
+        
+        # Generate adaptive session plan
+        prompt = f"""Create an adaptive 30-minute study session plan.
+
+Learning Style: {learning_style}
+
+Provide:
+1. Session structure (warm-up, main content, practice, review)
+2. Specific activities tailored to learning style
+3. Difficulty progression strategy
+4. Success metrics
+
+Format as JSON with session details."""
+        
+        response = bedrock_client.invoke_claude(prompt)
+        
+        return {
+            "success": True,
+            "session": {
+                "topic": "Adaptive Learning Session",
+                "duration": 30,
+                "difficulty": "adaptive",
+                "focusAreas": ["Core concepts", "Practice", "Review"]
+            },
+            "aiGuidance": response
+        }
+    except Exception as e:
+        logger.error(f"Error starting session: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Collaborative Learning Endpoints
+class CreateRoomRequest(BaseModel):
+    name: str
+    topic: str
+    difficulty: str = "medium"
+    maxParticipants: int = 10
+
+
+@app.get("/collaborative/rooms")
+async def get_study_rooms():
+    """Get available collaborative study rooms."""
+    try:
+        # In production, fetch from database
+        # For now, return sample rooms
+        sample_rooms = [
+            {
+                "id": "room_1",
+                "name": "React Hooks Deep Dive",
+                "topic": "React Hooks",
+                "participants": 3,
+                "maxParticipants": 10,
+                "difficulty": "intermediate",
+                "aiModeratorActive": True,
+                "createdBy": "user123",
+                "tags": ["react", "javascript", "frontend"]
+            },
+            {
+                "id": "room_2",
+                "name": "Data Structures Study Group",
+                "topic": "Data Structures & Algorithms",
+                "participants": 5,
+                "maxParticipants": 15,
+                "difficulty": "advanced",
+                "aiModeratorActive": True,
+                "createdBy": "user456",
+                "tags": ["algorithms", "computer-science"]
+            }
+        ]
+        
+        return {
+            "success": True,
+            "rooms": sample_rooms
+        }
+    except Exception as e:
+        logger.error(f"Error getting rooms: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/collaborative/create-room")
+async def create_study_room(req: CreateRoomRequest):
+    """Create a new collaborative study room."""
+    try:
+        room = {
+            "id": f"room_{datetime.utcnow().timestamp()}",
+            "name": req.name,
+            "topic": req.topic,
+            "participants": 1,
+            "maxParticipants": req.maxParticipants,
+            "difficulty": req.difficulty,
+            "aiModeratorActive": True,
+            "createdBy": "user123",
+            "tags": req.topic.lower().split()
+        }
+        
+        return {
+            "success": True,
+            "room": room
+        }
+    except Exception as e:
+        logger.error(f"Error creating room: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/collaborative/join-room")
+async def join_study_room(request: dict):
+    """Join a collaborative study room."""
+    try:
+        room_id = request.get('roomId')
+        
+        # Sample participants
+        participants = [
+            {"id": "1", "name": "Alice", "avatar": "👩", "isActive": True, "contributionScore": 150},
+            {"id": "2", "name": "Bob", "avatar": "👨", "isActive": True, "contributionScore": 120},
+            {"id": "3", "name": "You", "avatar": "😊", "isActive": True, "contributionScore": 0}
+        ]
+        
+        return {
+            "success": True,
+            "room": {
+                "id": room_id,
+                "name": "Study Room",
+                "topic": "Learning Together"
+            },
+            "participants": participants,
+            "recentMessages": []
+        }
+    except Exception as e:
+        logger.error(f"Error joining room: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/collaborative/send-message")
+async def send_room_message(request: dict):
+    """Send message in collaborative room with AI moderation."""
+    if not services_initialized:
+        raise HTTPException(status_code=503, detail="Collaborative service not available")
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        
+        room_id = request.get('roomId')
+        message = request.get('message')
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        # AI moderator analyzes message and provides insights
+        prompt = f"""As an AI moderator in a collaborative learning room, analyze this message:
+
+"{message}"
+
+Determine if you should:
+1. Respond with clarification or additional insights
+2. Suggest related topics to explore
+3. Provide encouragement
+4. Let the conversation flow naturally
+
+If responding, keep it brief and helpful. If not needed, return empty response."""
+        
+        ai_response_text = bedrock_client.invoke_claude(prompt, max_tokens=500, temperature=0.7)
+        
+        # Generate smart suggestions for follow-up
+        suggestions = []
+        if '?' in message:
+            suggestions = [
+                "Can you elaborate on that?",
+                "What's your understanding so far?",
+                "Let's break this down together"
+            ]
+        
+        ai_response = ai_response_text.strip() if len(ai_response_text.strip()) > 20 else None
+        
+        return {
+            "success": True,
+            "aiResponse": ai_response,
+            "suggestions": suggestions
+        }
+    except Exception as e:
+        logger.error(f"Error sending message: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

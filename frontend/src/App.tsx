@@ -11,6 +11,8 @@ import MultimodalProcessor from './components/MultimodalProcessor';
 import StudyTimer from './components/StudyTimer';
 import ProgressTracker from './components/ProgressTracker';
 import NoteTaker from './components/NoteTaker';
+import AIStudyBuddy from './components/AIStudyBuddy';
+import CollaborativeLearning from './components/CollaborativeLearning';
 import Login from './components/Login';
 import CustomCursor from './components/CustomCursor';
 
@@ -174,6 +176,8 @@ function App() {
       <nav className="nav-tabs">
         {[
           { id: 'tutor', label: '🤖 AI Tutor', icon: '🤖' },
+          { id: 'study-buddy', label: '🎯 AI Study Buddy', icon: '🎯' },
+          { id: 'collaborative', label: '👥 Collaborative Learning', icon: '👥' },
           { id: 'timer', label: '⏱️ Study Timer', icon: '⏱️' },
           { id: 'progress', label: '📊 Progress', icon: '📊' },
           { id: 'playground', label: '💻 Code Playground', icon: '💻' },
@@ -211,6 +215,8 @@ function App() {
             transition={{ duration: 0.4 }}
           >
             {activeTab === 'tutor' && <AITutorChat authToken={authToken} />}
+            {activeTab === 'study-buddy' && <AIStudyBuddy authToken={authToken} />}
+            {activeTab === 'collaborative' && <CollaborativeLearning authToken={authToken} />}
             {activeTab === 'timer' && <StudyTimer authToken={authToken} />}
             {activeTab === 'progress' && <ProgressTracker authToken={authToken} />}
             {activeTab === 'playground' && <CodePlayground authToken={authToken} />}

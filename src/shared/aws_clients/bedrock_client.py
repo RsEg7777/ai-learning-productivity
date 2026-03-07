@@ -266,3 +266,91 @@ Include:
 4. Potential improvements or issues"""
 
         return self.invoke_claude(prompt=prompt, max_tokens=2048, temperature=0.3)
+
+    def invoke_claude_with_image(
+        self,
+        prompt: str,
+        image_base64: str,
+        max_tokens: int = 2048,
+        temperature: float = 0.7,
+        model_version: str = "sonnet-4-6",
+    ) -> str:
+        """
+        Invoke Claude with image input for vision tasks.
+
+        Args:
+            prompt: Text prompt
+            image_base64: Base64 encoded image
+            max_tokens: Maximum tokens to generate
+            temperature: Sampling temperature
+            model_version: Claude model version
+
+        Returns:
+            Generated text response
+        """
+        try:
+            # Use Claude 4 Sonnet with vision capabilities
+            if model_version in ["sonnet-4-6", "opus-4-6-v1"]:
+                model_id = f"us.anthropic.claude-{model_version}"
+            else:
+                model_id = f"anthropic.claude-{model_version}"
+
+            # Prepare request body with image
+            body = {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": image_base64
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": prompt
+                            }
+                        ]
+                    }
+                ],
+                "inferenceConfig": {
+                    "max_new_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+            }
+
+            logger.debug(f"Invoking Bedrock model with image: {model_id}")
+            
+            response = self.client.invoke_model(
+                modelId=model_id,
+                body=json.dumps(body),
+                contentType="application/json",
+                accept="application/json",
+            )
+
+            response_body = json.loads(response["body"].read())
+
+            # Extract text from response
+            output = response_body.get("output", {})
+            message = output.get("message", {})
+            content = message.get("content", [])
+            text = content[0].get("text", "") if content else ""
+
+            if not text:
+                logger.error(f"Empty response from Bedrock model {model_id}")
+                raise ValueError(f"Empty response from model {model_id}")
+
+            logger.info(f"Successfully invoked model {model_id} with image ({len(text)} chars)")
+            return text.strip()
+
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            error_msg = e.response.get('Error', {}).get('Message', str(e))
+            logger.error(f"Bedrock API error ({error_code}): {error_msg}")
+            raise ValueError(f"Bedrock error: {error_msg}")
+        except Exception as e:
+            logger.error(f"Unexpected error invoking Bedrock with image: {e}", exc_info=True)
+            raise ValueError(f"Failed to invoke Bedrock model with image: {str(e)}")

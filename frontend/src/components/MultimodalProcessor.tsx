@@ -24,142 +24,11 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
     }
   };
 
-  const generateMockResult = (mode: string, fileName: string, fileSize?: number) => {
-    const fileExt = fileName.split('.').pop()?.toLowerCase() || '';
-    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExt);
-    
-    const results: { [key: string]: any } = {
-      handwriting: {
-        text: fileName.toLowerCase().includes('note') || fileName.toLowerCase().includes('hand')
-          ? `"Meeting Notes - Project Discussion\n\nKey Points:\n• Review project timeline and milestones\n• Discuss resource allocation\n• Address technical challenges\n• Plan next sprint activities\n\nAction Items:\n1. Update documentation\n2. Schedule follow-up meeting\n3. Review code changes"`
-          : fileName.toLowerCase().includes('math') || fileName.toLowerCase().includes('equation')
-          ? `"Mathematical Equations:\n\nx² + 5x + 6 = 0\n\nSolve for x using the quadratic formula\n\nSteps:\n1. Identify a, b, c values\n2. Apply formula: x = (-b ± √(b²-4ac))/2a\n3. Calculate discriminant\n4. Find solutions"`
-          : `"${fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')}\n\nThis document contains handwritten text that has been successfully recognized by our AI system. The content appears to be ${isImage ? 'clearly written' : 'scanned from a document'} with good legibility.\n\nThe text discusses various concepts and ideas related to the subject matter."`,
-        confidence: `${85 + Math.floor(Math.random() * 15)}%`,
-        language: 'English',
-        wordsDetected: 15 + Math.floor(Math.random() * 50)
-      },
-      diagram: {
-        type: fileName.toLowerCase().includes('flow') ? 'Flowchart'
-          : fileName.toLowerCase().includes('uml') ? 'UML Diagram'
-          : fileName.toLowerCase().includes('network') ? 'Network Diagram'
-          : fileName.toLowerCase().includes('data') ? 'Data Flow Diagram'
-          : 'Process Diagram',
-        components: fileName.toLowerCase().includes('flow')
-          ? ['6 Process boxes', '4 Decision diamonds', '10 Connecting arrows', '2 Start/End terminals']
-          : fileName.toLowerCase().includes('uml')
-          ? ['5 Classes', '8 Relationships', '12 Methods', '15 Attributes']
-          : fileName.toLowerCase().includes('network')
-          ? ['8 Nodes', '12 Connections', '3 Routers', '5 Endpoints']
-          : ['7 Components', '9 Connections', '4 Data stores', '3 External entities'],
-        description: `This ${fileName.toLowerCase().includes('flow') ? 'flowchart' : 'diagram'} represents a ${fileName.toLowerCase().includes('system') ? 'system architecture' : 'process flow'} with multiple interconnected components. The diagram shows clear relationships between different elements and follows standard notation conventions. ${fileName.toLowerCase().includes('complex') ? 'The complexity suggests a sophisticated system design.' : 'The structure is well-organized and easy to follow.'}`,
-        insights: [
-          `Clear ${fileName.toLowerCase().includes('flow') ? 'logical flow' : 'structural organization'}`,
-          'Well-defined component relationships',
-          `${fileName.toLowerCase().includes('complex') ? 'High complexity with multiple decision points' : 'Moderate complexity with straightforward logic'}`,
-          'Follows industry standard notation'
-        ]
-      },
-      math: {
-        problem: fileName.toLowerCase().includes('calculus') ? 'Solve the calculus problem shown in the image'
-          : fileName.toLowerCase().includes('algebra') ? 'Solve the algebraic equation'
-          : fileName.toLowerCase().includes('geometry') ? 'Calculate the geometric properties'
-          : 'Solve the mathematical problem shown in the image',
-        steps: fileName.toLowerCase().includes('calculus')
-          ? [
-              'Step 1: Identify the function and the operation (derivative or integral)',
-              'Step 2: Apply the appropriate calculus rule (power rule, chain rule, etc.)',
-              'Step 3: Simplify the expression',
-              'Step 4: Evaluate at the given points if specified'
-            ]
-          : fileName.toLowerCase().includes('algebra')
-          ? [
-              'Step 1: Identify the equation type (linear, quadratic, polynomial)',
-              'Step 2: Rearrange terms to standard form',
-              'Step 3: Apply the appropriate solving method',
-              'Step 4: Verify the solution by substitution'
-            ]
-          : [
-              'Step 1: Identify the problem type and given information',
-              'Step 2: Select the appropriate formula or theorem',
-              'Step 3: Substitute known values',
-              'Step 4: Calculate and simplify the result'
-            ],
-        answer: fileName.toLowerCase().includes('quadratic') ? 'x = 3 or x = -2'
-          : fileName.toLowerCase().includes('linear') ? 'x = 5'
-          : fileName.toLowerCase().includes('calculus') ? 'f\'(x) = 2x + 3'
-          : `Solution: ${Math.floor(Math.random() * 100)}`,
-        verification: 'Solution verified by substitution into the original equation'
-      },
-      screenshot: {
-        quiz: fileName.toLowerCase().includes('code') || fileName.toLowerCase().includes('program')
-          ? [
-              {
-                question: 'What programming concept is demonstrated in this screenshot?',
-                options: ['Functions and Methods', 'Variables and Data Types', 'Loops and Iteration', 'Classes and Objects']
-              },
-              {
-                question: 'What is the primary purpose of the code shown?',
-                options: ['Data Processing', 'User Interface', 'Algorithm Implementation', 'Database Operations']
-              },
-              {
-                question: 'Which programming paradigm is being used?',
-                options: ['Object-Oriented', 'Functional', 'Procedural', 'Declarative']
-              }
-            ]
-          : fileName.toLowerCase().includes('math') || fileName.toLowerCase().includes('equation')
-          ? [
-              {
-                question: 'What type of mathematical problem is shown?',
-                options: ['Algebra', 'Calculus', 'Geometry', 'Statistics']
-              },
-              {
-                question: 'What is the difficulty level of this problem?',
-                options: ['Beginner', 'Intermediate', 'Advanced', 'Expert']
-              },
-              {
-                question: 'Which mathematical concept is central to this problem?',
-                options: ['Equations', 'Functions', 'Derivatives', 'Integrals']
-              }
-            ]
-          : [
-              {
-                question: `What is the main topic shown in the screenshot (${fileName})?`,
-                options: ['Technical Documentation', 'Educational Content', 'Business Information', 'Creative Work']
-              },
-              {
-                question: 'What level of detail is presented in the content?',
-                options: ['Overview/Summary', 'Detailed Explanation', 'Step-by-Step Guide', 'Reference Material']
-              },
-              {
-                question: 'Who is the likely target audience?',
-                options: ['Beginners', 'Intermediate Learners', 'Advanced Users', 'Experts']
-              }
-            ],
-        summary: `Generated 3 contextual questions based on the screenshot content from "${fileName}"`
-      }
-    };
-
-    return results[mode] || { text: 'Processing completed successfully!' };
-  };
-
   const processImage = async () => {
     if (!selectedFile) return;
 
     setProcessing(true);
     setResult(null);
-
-    // If no API URL is configured, use mock data directly
-    const apiUrl = process.env.REACT_APP_API_URL || '';
-    if (!apiUrl) {
-      console.log('No API configured, using mock processing');
-      setTimeout(() => {
-        const mockResult = generateMockResult(mode, selectedFile.name, selectedFile.size);
-        setResult(mockResult);
-        setProcessing(false);
-      }, 2000);
-      return;
-    }
 
     try {
       const formData = new FormData();
@@ -173,6 +42,7 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
         screenshot: '/multimodal/screenshot-to-quiz'
       }[mode];
 
+      const apiUrl = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${apiUrl}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -182,25 +52,21 @@ const MultimodalProcessor: React.FC<MultimodalProcessorProps> = ({ authToken }) 
       });
 
       if (!response.ok) {
-        console.warn('API not available, using mock data');
-        setTimeout(() => {
-          const mockResult = generateMockResult(mode, selectedFile.name, selectedFile.size);
-          setResult(mockResult);
-          setProcessing(false);
-        }, 2000);
-        return;
+        throw new Error('Failed to process image');
       }
 
       const data = await response.json();
-      setResult(data);
+      
+      if (data.success) {
+        setResult(data);
+      } else {
+        setResult({ error: 'Processing failed. Please try again.' });
+      }
       setProcessing(false);
     } catch (error) {
-      console.warn('API error, using mock data:', error);
-      setTimeout(() => {
-        const mockResult = generateMockResult(mode, selectedFile.name, selectedFile.size);
-        setResult(mockResult);
-        setProcessing(false);
-      }, 2000);
+      console.error('Error processing image:', error);
+      setResult({ error: 'Failed to process image. Please check your connection and try again.' });
+      setProcessing(false);
     }
   };
 

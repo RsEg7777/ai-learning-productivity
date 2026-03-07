@@ -28,85 +28,6 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
 
   const API_URL = process.env.REACT_APP_API_URL || '';
 
-  const generateMockFlashcards = (content: string, count: number): Flashcard[] => {
-    const flashcards: Flashcard[] = [];
-    
-    // Extract meaningful phrases and concepts
-    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
-    const words = content.toLowerCase().split(/\s+/).filter(w => w.length > 4);
-    const uniqueWords = Array.from(new Set(words)).slice(0, 20);
-    
-    // Detect topic
-    const topicKeywords = {
-      programming: ['code', 'function', 'variable', 'class', 'method', 'algorithm', 'data', 'program'],
-      science: ['theory', 'experiment', 'hypothesis', 'research', 'study', 'analysis', 'result'],
-      math: ['equation', 'formula', 'calculate', 'number', 'solve', 'proof', 'theorem'],
-      history: ['year', 'century', 'war', 'empire', 'revolution', 'period', 'era'],
-      language: ['grammar', 'vocabulary', 'sentence', 'word', 'meaning', 'definition']
-    };
-    
-    let detectedTopic = 'general';
-    let maxMatches = 0;
-    
-    for (const [topic, keywords] of Object.entries(topicKeywords)) {
-      const matches = keywords.filter(kw => content.toLowerCase().includes(kw)).length;
-      if (matches > maxMatches) {
-        maxMatches = matches;
-        detectedTopic = topic;
-      }
-    }
-    
-    const difficulties = ['easy', 'medium', 'hard'];
-    
-    for (let i = 0; i < Math.min(count, sentences.length); i++) {
-      const sentence = sentences[i].trim();
-      const difficulty = difficulties[i % 3];
-      const relevantWords = uniqueWords.slice(i * 2, i * 2 + 3);
-      
-      // Create contextual question
-      let question = '';
-      let answer = '';
-      
-      if (i % 3 === 0) {
-        // Definition style
-        const keyword = relevantWords[0] || 'concept';
-        question = `What is ${keyword} and why is it important in ${detectedTopic}?`;
-        answer = sentence.length > 100 ? sentence.substring(0, 100) + '...' : sentence;
-      } else if (i % 3 === 1) {
-        // Explanation style
-        question = `Explain the concept: "${sentence.substring(0, 50)}..."`;
-        answer = `This refers to ${sentence}. It's a key concept in understanding ${detectedTopic}.`;
-      } else {
-        // Application style
-        question = `How would you apply this concept: ${relevantWords.slice(0, 2).join(' and ')}?`;
-        answer = `Based on the content: ${sentence}`;
-      }
-      
-      flashcards.push({
-        id: `fc_${Date.now()}_${i}`,
-        question: question,
-        answer: answer,
-        difficulty: difficulty,
-        tags: [detectedTopic, ...relevantWords.slice(0, 2), difficulty]
-      });
-    }
-    
-    // If we need more flashcards, create summary ones
-    while (flashcards.length < count && sentences.length > 0) {
-      const idx = flashcards.length;
-      const sentence = sentences[idx % sentences.length];
-      flashcards.push({
-        id: `fc_${Date.now()}_${idx}`,
-        question: `What does this statement mean: "${sentence.substring(0, 60)}..."?`,
-        answer: sentence,
-        difficulty: difficulties[idx % 3],
-        tags: [detectedTopic, 'comprehension']
-      });
-    }
-
-    return flashcards.slice(0, count);
-  };
-
   const handleGenerate = async () => {
     if (!content.trim()) {
       setError('Please enter some content to generate flashcards');
@@ -117,17 +38,6 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
     setError('');
     setFlashcards([]);
     setFlippedCards(new Set());
-
-    // If no API URL is configured, use mock data directly
-    if (!API_URL) {
-      console.log('No API configured, using mock flashcard generation');
-      setTimeout(() => {
-        const mockFlashcards = generateMockFlashcards(content, count);
-        setFlashcards(mockFlashcards);
-        setLoading(false);
-      }, 1500);
-      return;
-    }
 
     try {
       const response = await fetch(`${API_URL}/flashcards/generate`, {
@@ -143,19 +53,14 @@ const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({ authToken }) =>
       });
 
       if (!response.ok) {
-        console.warn('API not available, using mock data');
-        const mockFlashcards = generateMockFlashcards(content, count);
-        setFlashcards(mockFlashcards);
-        setLoading(false);
-        return;
+        throw new Error('Failed to generate flashcards');
       }
 
       const data: FlashcardResponse = await response.json();
       setFlashcards(data.flashcards);
     } catch (err: any) {
-      console.warn('API error, using mock data:', err);
-      const mockFlashcards = generateMockFlashcards(content, count);
-      setFlashcards(mockFlashcards);
+      console.error('Error generating flashcards:', err);
+      setError('Failed to generate flashcards. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

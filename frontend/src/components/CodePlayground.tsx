@@ -17,89 +17,12 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ authToken }) => {
     'rust', 'ruby', 'php', 'typescript'
   ];
 
-  const simulateExecution = (code: string, language: string) => {
-    // Analyze the code to generate relevant output
-    const lines = code.split('\n').filter(l => l.trim());
-    
-    // Detect what the code is trying to do
-    const hasPrint = /print|console\.log|System\.out|cout|echo|puts/.test(code);
-    const hasLoop = /for|while|forEach|map/.test(code);
-    const hasFunction = /function|def|func|fn/.test(code);
-    const hasClass = /class\s+\w+/.test(code);
-    const hasVariables = /let|const|var|int|string|=/.test(code);
-    
-    // Extract potential output
-    const printMatches = code.match(/print\(['"](.*?)['"]\)|console\.log\(['"](.*?)['"]\)|System\.out\.println\(['"](.*?)['"]\)/g);
-    let output = '';
-    
-    if (printMatches && printMatches.length > 0) {
-      output = printMatches.map(match => {
-        const content = match.match(/['"](.*?)['"]/);
-        return content ? content[1] : 'Output';
-      }).join('\n');
-    } else if (hasPrint) {
-      output = 'Hello, World!\nProgram executed successfully!';
-    } else if (hasFunction) {
-      output = 'Function defined and ready to use\nNo output (function not called)';
-    } else if (hasClass) {
-      output = 'Class definition compiled successfully\nNo output (class not instantiated)';
-    } else if (hasVariables) {
-      output = 'Variables initialized\nNo console output';
-    } else {
-      output = 'Code executed\nNo output generated';
-    }
-    
-    // Calculate execution metrics
-    const executionTime = (20 + Math.random() * 100).toFixed(0);
-    const memoryUsed = (1.5 + Math.random() * 10).toFixed(1);
-    
-    // Add warnings or notes based on code analysis
-    const notes = [];
-    if (!hasPrint && lines.length > 5) {
-      notes.push('\nNote: No output statements detected. Add print/console.log to see results.');
-    }
-    if (hasLoop && lines.length > 20) {
-      notes.push('\nNote: Loop detected. Ensure it has proper exit conditions.');
-    }
-    
-    const languageSpecific = {
-      python: `Python ${Math.floor(Math.random() * 2) + 3}.${Math.floor(Math.random() * 10)}`,
-      javascript: `Node.js v${Math.floor(Math.random() * 4) + 16}.${Math.floor(Math.random() * 10)}.0`,
-      java: `Java ${Math.floor(Math.random() * 5) + 11}`,
-      typescript: `TypeScript ${Math.floor(Math.random() * 2) + 4}.${Math.floor(Math.random() * 10)}`,
-      cpp: `g++ ${Math.floor(Math.random() * 5) + 9}.${Math.floor(Math.random() * 5)}.0`,
-      go: `Go ${Math.floor(Math.random() * 2) + 1}.${Math.floor(Math.random() * 20)}`,
-      rust: `Rust ${Math.floor(Math.random() * 2) + 1}.${Math.floor(Math.random() * 70)}`,
-    };
-    
-    return `Executing ${language.toUpperCase()} code...
-${languageSpecific[language as keyof typeof languageSpecific] || language}
-
-${output}
-${notes.join('')}
-
-✓ Execution completed successfully!
-⏱️  Time: ${executionTime}ms
-💾 Memory: ${memoryUsed} MB
-📊 Exit code: 0`;
-  };
-
   const executeCode = async () => {
     setIsExecuting(true);
     setOutput('Executing code...');
     setAiSuggestion('');
     
-    // If no API URL is configured, use mock execution directly
     const apiUrl = process.env.REACT_APP_API_URL || '';
-    if (!apiUrl) {
-      console.log('No API configured, using mock execution');
-      setTimeout(() => {
-        const mockOutput = simulateExecution(code, language);
-        setOutput(mockOutput);
-        setIsExecuting(false);
-      }, 1500);
-      return;
-    }
     
     try {
       const response = await fetch(`${apiUrl}/playground/execute`, {
@@ -110,17 +33,6 @@ ${notes.join('')}
         },
         body: JSON.stringify({ code, language })
       });
-
-      if (!response.ok) {
-        // Use mock execution
-        console.warn('API not available, using mock execution');
-        setTimeout(() => {
-          const mockOutput = simulateExecution(code, language);
-          setOutput(mockOutput);
-          setIsExecuting(false);
-        }, 1500);
-        return;
-      }
 
       const data = await response.json();
       
@@ -137,73 +49,64 @@ ${notes.join('')}
       }
       setIsExecuting(false);
     } catch (error) {
-      console.warn('API error, using mock execution:', error);
-      setTimeout(() => {
-        const mockOutput = simulateExecution(code, language);
-        setOutput(mockOutput);
-        setIsExecuting(false);
-      }, 1500);
+      console.error('API error:', error);
+      setOutput(`Error: Unable to execute code. Please check your connection and try again.`);
+      setIsExecuting(false);
     }
   };
 
   const getAiCompletion = async () => {
-    // Analyze code to give relevant suggestions
-    const codeAnalysis = {
-      hasErrorHandling: /try|catch|except/.test(code),
-      hasComments: /\/\/|#|\/\*/.test(code),
-      hasTypes: /:\s*\w+|<\w+>/.test(code),
-      complexity: code.split('\n').length,
-      hasAsync: /async|await|Promise/.test(code)
-    };
+    const apiUrl = process.env.REACT_APP_API_URL || '';
     
-    const suggestions = [];
-    
-    if (!codeAnalysis.hasErrorHandling) {
-      suggestions.push('Add error handling with try-catch blocks to make your code more robust');
-    }
-    
-    if (!codeAnalysis.hasComments && codeAnalysis.complexity > 10) {
-      suggestions.push('Add comments to explain complex logic for better maintainability');
-    }
-    
-    if (language === 'typescript' && !codeAnalysis.hasTypes) {
-      suggestions.push('Add type annotations to leverage TypeScript\'s type safety');
-    }
-    
-    if (language === 'python' && !code.includes('def ') && codeAnalysis.complexity > 5) {
-      suggestions.push('Consider breaking code into functions for better organization');
-    }
-    
-    if (codeAnalysis.hasAsync) {
-      suggestions.push('Good use of async/await! Ensure all promises are properly handled');
-    } else if (code.includes('fetch') || code.includes('request')) {
-      suggestions.push('Consider using async/await for cleaner asynchronous code');
-    }
-    
-    // Add language-specific suggestions
-    if (language === 'python') {
-      suggestions.push('Follow PEP 8 style guide for consistent Python code');
-      if (!code.includes('if __name__')) {
-        suggestions.push('Add if __name__ == "__main__": guard for script execution');
-      }
-    } else if (language === 'javascript' || language === 'typescript') {
-      suggestions.push('Use const/let instead of var for better scoping');
-      if (!code.includes('===')) {
-        suggestions.push('Use === for strict equality comparisons');
-      }
-    }
-    
-    const suggestionText = `💡 AI Code Suggestions:\n\n${suggestions.slice(0, 4).map((s, i) => `${i + 1}. ${s}`).join('\n\n')}
+    try {
+      const response = await fetch(`${apiUrl}/code/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ code, language })
+      });
 
-📚 Additional Tips:
-• Write unit tests for your functions
-• Use meaningful variable names
-• Keep functions small and focused
-• Document your code with comments
-
-Code Quality Score: ${suggestions.length < 2 ? '8/10 - Great!' : suggestions.length < 4 ? '6/10 - Good' : '4/10 - Needs improvement'}`;
-    
-    setAiSuggestion(suggestionText);
+      const data = await response.json();
+      
+      if (data.success && data.analysis) {
+        const analysis = data.analysis;
+        let suggestionText = `💡 AI Code Analysis:\n\n`;
+        
+        if (analysis.explanation) {
+          suggestionText += `${analysis.explanation}\n\n`;
+        }
+        
+        if (analysis.improvements && analysis.improvements.length > 0) {
+          suggestionText += `🔧 Suggested Improvements:\n`;
+          analysis.improvements.slice(0, 3).forEach((imp: any, i: number) => {
+            suggestionText += `${i + 1}. ${imp.title}: ${imp.description}\n`;
+          });
+          suggestionText += `\n`;
+        }
+        
+        if (analysis.issues && analysis.issues.length > 0) {
+          suggestionText += `⚠️ Issues Found:\n`;
+          analysis.issues.slice(0, 3).forEach((issue: any, i: number) => {
+            suggestionText += `${i + 1}. [${issue.severity}] ${issue.message}\n`;
+          });
+          suggestionText += `\n`;
+        }
+        
+        if (analysis.best_practices && analysis.best_practices.length > 0) {
+          suggestionText += `✨ Best Practices:\n`;
+          analysis.best_practices.slice(0, 3).forEach((bp: string, i: number) => {
+            suggestionText += `• ${bp}\n`;
+          });
+        }
+        
+        setAiSuggestion(suggestionText);
+      }
+    } catch (error) {
+      console.error('Error getting AI suggestions:', error);
+      setAiSuggestion('Unable to get AI suggestions. Please try again.');
+    }
   };
 
   return (
