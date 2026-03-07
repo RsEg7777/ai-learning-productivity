@@ -137,7 +137,7 @@ function App() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
         >
-          Powered by AWS Bedrock & Claude AI
+          AI-Powered Learning Platform
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
