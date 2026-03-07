@@ -6,7 +6,7 @@ from datetime import datetime
 from dataclasses import dataclass, asdict
 from collections import defaultdict
 
-from ...shared.aws_clients.dynamodb_client import DynamoDBClient
+from ...shared.aws_clients.dynamodb_multi_table import DynamoDBMultiTableClient
 from ...shared.utils.logger import get_logger
 from ...shared.utils.errors import ServiceError
 
@@ -66,10 +66,10 @@ class RealtimeStudyRooms:
 
     def __init__(
         self,
-        dynamodb_client: Optional[DynamoDBClient] = None,
+        dynamodb_client: Optional[DynamoDBMultiTableClient] = None,
     ):
         """Initialize realtime study rooms."""
-        self.dynamodb_client = dynamodb_client or DynamoDBClient()
+        self.dynamodb_client = dynamodb_client or DynamoDBMultiTableClient()
         self.rooms_table = "study_rooms"
         self.battles_table = "quiz_battles"
         self.connections_table = "websocket_connections"

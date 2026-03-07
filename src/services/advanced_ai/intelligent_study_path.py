@@ -7,7 +7,7 @@ from dataclasses import dataclass, asdict
 import math
 
 from ...shared.aws_clients.bedrock_client import BedrockClient
-from ...shared.aws_clients.dynamodb_client import DynamoDBClient
+from ...shared.aws_clients.dynamodb_multi_table import DynamoDBMultiTableClient
 from ...shared.utils.logger import get_logger
 from ...shared.utils.errors import ServiceError
 
@@ -70,11 +70,11 @@ class IntelligentStudyPathGenerator:
     def __init__(
         self,
         bedrock_client: Optional[BedrockClient] = None,
-        dynamodb_client: Optional[DynamoDBClient] = None,
+        dynamodb_client: Optional[DynamoDBMultiTableClient] = None,
     ):
         """Initialize study path generator."""
         self.bedrock_client = bedrock_client or BedrockClient()
-        self.dynamodb_client = dynamodb_client or DynamoDBClient()
+        self.dynamodb_client = dynamodb_client or DynamoDBMultiTableClient()
         self.table_name = "study_paths"
         logger.info("IntelligentStudyPathGenerator initialized")
 

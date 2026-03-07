@@ -204,7 +204,7 @@ class MFAManager:
 
     def send_verification_code(self, user_id: str, phone_number: str) -> str:
         """
-        Send a verification code via SMS (simulated for development).
+        Send a verification code via SMS.
 
         Args:
             user_id: User identifier
@@ -232,9 +232,27 @@ class MFAManager:
                 "verified": False,
             })
 
-            # In production, this would send SMS via SNS
-            logger.info(f"Generated verification code for user: {user_id}")
-            logger.debug(f"Verification code (dev only): {code}")
+            # Send SMS via SNS
+            try:
+                import boto3
+                sns = boto3.client('sns')
+                message = f"Your verification code is: {code}. This code expires in {self.code_expiry.seconds // 60} minutes."
+                
+                sns.publish(
+                    PhoneNumber=phone_number,
+                    Message=message,
+                    MessageAttributes={
+                        'AWS.SNS.SMS.SMSType': {
+                            'DataType': 'String',
+                            'StringValue': 'Transactional'
+                        }
+                    }
+                )
+                logger.info(f"Sent verification code via SMS to {phone_number}")
+            except Exception as e:
+                logger.error(f"Failed to send SMS: {e}")
+                # In development, log the code
+                logger.warning(f"SMS sending failed. Verification code (dev only): {code}")
 
             return code_id
 

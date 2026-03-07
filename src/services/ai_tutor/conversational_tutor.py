@@ -54,8 +54,8 @@ class ConversationalTutor:
     ):
         """Initialize the conversational tutor."""
         self.bedrock_client = bedrock_client or BedrockClient()
-        self.dynamodb_client = dynamodb_client or DynamoDBClient()
-        self.table_name = "tutor_sessions"
+        self.table_name = "ai-learning-tutor-sessions"
+        self.dynamodb_client = dynamodb_client or DynamoDBClient(table_name=self.table_name)
         logger.info("ConversationalTutor initialized")
 
     def start_session(
@@ -191,6 +191,7 @@ class ConversationalTutor:
             # Generate summary using AI
             summary_prompt = self._build_summary_prompt(session)
             summary_response = self.bedrock_client.invoke_model(
+                model_id="us.amazon.nova-pro-v1:0",
                 prompt=summary_prompt,
                 max_tokens=1000,
             )
@@ -259,15 +260,41 @@ Respond in JSON format:
 }}"""
 
         response = self.bedrock_client.invoke_model(
+            model_id="us.amazon.nova-pro-v1:0",
             prompt=prompt,
             max_tokens=2000,
             temperature=0.7,
         )
         
+        # Try to parse as JSON
         try:
-            return json.loads(response)
-        except json.JSONDecodeError:
-            # Fallback if response is not valid JSON
+            parsed = json.loads(response)
+            # Validate required fields
+            if 'answer' in parsed:
+                return parsed
+            else:
+                logger.warning("Response missing 'answer' field, using fallback")
+                return {
+                    "answer": response,
+                    "follow_up_questions": [],
+                    "concepts_covered": [],
+                    "difficulty_assessment": "unknown",
+                    "learning_tips": [],
+                }
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse JSON response: {e}. Using raw response as answer")
+            # Extract any JSON-like content from the response
+            import re
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                try:
+                    parsed = json.loads(json_match.group(0))
+                    if 'answer' in parsed:
+                        return parsed
+                except:
+                    pass
+            
+            # Fallback: use raw response
             return {
                 "answer": response,
                 "follow_up_questions": [],
@@ -360,7 +387,7 @@ Provide a summary in JSON format:
                 "updated_at": session.updated_at,
                 "context": session.context,
             }
-            self.dynamodb_client.put_item(self.table_name, item)
+            self.dynamodb_client.put_item(item)
         except Exception as e:
             logger.warning(f"Failed to save session to DynamoDB: {e}")
 
@@ -368,7 +395,6 @@ Provide a summary in JSON format:
         """Load session from DynamoDB."""
         try:
             item = self.dynamodb_client.get_item(
-                self.table_name,
                 {"session_id": session_id}
             )
             

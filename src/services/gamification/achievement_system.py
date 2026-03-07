@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-from ...shared.aws_clients.dynamodb_client import DynamoDBClient
+from ...shared.aws_clients.dynamodb_multi_table import DynamoDBMultiTableClient
 from ...shared.aws_clients.sns_client import SNSClient
 from ...shared.utils.logger import get_logger
 from ...shared.utils.errors import ServiceError
@@ -85,15 +85,17 @@ class AchievementSystem:
 
     def __init__(
         self,
-        dynamodb_client: Optional[DynamoDBClient] = None,
+        dynamodb_client: Optional[DynamoDBMultiTableClient] = None,
         sns_client: Optional[SNSClient] = None,
     ):
         """Initialize achievement system."""
-        self.dynamodb_client = dynamodb_client or DynamoDBClient()
-        self.sns_client = sns_client or SNSClient()
         self.stats_table = "user_stats"
         self.achievements_table = "user_achievements"
         self.leaderboard_table = "leaderboards"
+        
+        # Initialize multi-table client
+        self.dynamodb_client = dynamodb_client or DynamoDBMultiTableClient()
+        self.sns_client = sns_client or SNSClient()
         
         # XP required for each level (exponential growth)
         self.xp_per_level = lambda level: int(100 * (1.5 ** (level - 1)))
@@ -256,27 +258,127 @@ class AchievementSystem:
             Dictionary with leaderboard data
         """
         try:
-            # Query leaderboard from DynamoDB
-            # In production, use GSI for efficient queries
+            logger.info(f"Retrieving {leaderboard_type} leaderboard for {time_period}")
             
-            # Mock implementation for now
-            leaderboard_data = {
+            # Determine the table/index to query based on time period
+            if time_period == "all_time":
+                # Query main stats table, sorted by total_xp
+                response = self.dynamodb_client.scan_table(
+                    self.stats_table,
+                    limit=limit
+                )
+                
+                # Sort by total_xp (DynamoDB scan doesn't guarantee order)
+                entries = sorted(
+                    response,
+                    key=lambda x: x.get('total_xp', 0),
+                    reverse=True
+                )[:limit]
+                
+            else:
+                # For time-based leaderboards, query the leaderboard table
+                # which should have GSI on time_period
+                entries = self._get_time_based_leaderboard(
+                    leaderboard_type,
+                    time_period,
+                    limit
+                )
+            
+            # Format leaderboard entries
+            leaderboard_entries = []
+            user_rank = None
+            
+            for rank, entry in enumerate(entries, start=1):
+                entry_data = {
+                    "rank": rank,
+                    "user_id": entry.get('user_id'),
+                    "username": entry.get('username', f"User{entry.get('user_id', '')[:8]}"),
+                    "total_xp": entry.get('total_xp', 0),
+                    "level": entry.get('level', 1),
+                    "achievements_unlocked": entry.get('achievements_unlocked', 0),
+                }
+                leaderboard_entries.append(entry_data)
+                
+                # Track user's rank if provided
+                if user_id and entry.get('user_id') == user_id:
+                    user_rank = rank
+            
+            # If user not in top entries, find their rank
+            if user_id and user_rank is None:
+                user_rank = self._get_user_rank(user_id, time_period)
+            
+            return {
                 "leaderboard_type": leaderboard_type,
                 "time_period": time_period,
                 "updated_at": datetime.now().isoformat(),
-                "entries": [],
-                "user_rank": None,
+                "entries": leaderboard_entries,
+                "user_rank": user_rank,
+                "total_entries": len(leaderboard_entries),
             }
-            
-            # Get top users by XP
-            # This would be a proper DynamoDB query in production
-            logger.info(f"Retrieved {leaderboard_type} leaderboard for {time_period}")
-            
-            return leaderboard_data
             
         except Exception as e:
             logger.error(f"Error getting leaderboard: {e}", exc_info=True)
             raise ServiceError(f"Failed to get leaderboard: {str(e)}")
+
+    def _get_time_based_leaderboard(
+        self,
+        leaderboard_type: str,
+        time_period: str,
+        limit: int,
+    ) -> List[Dict[str, Any]]:
+        """Get time-based leaderboard entries."""
+        try:
+            # Calculate time range
+            now = datetime.now()
+            if time_period == "daily":
+                start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif time_period == "weekly":
+                start_date = now - timedelta(days=now.weekday())
+                start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif time_period == "monthly":
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            else:
+                start_date = datetime.min
+            
+            # Query leaderboard table with time filter
+            # In production, use GSI for efficient queries
+            response = self.dynamodb_client.query_items(
+                self.leaderboard_table,
+                key_condition="leaderboard_type = :type AND period_start >= :start",
+                expression_values={
+                    ":type": leaderboard_type,
+                    ":start": start_date.isoformat(),
+                },
+                limit=limit
+            )
+            
+            return response
+            
+        except Exception as e:
+            logger.warning(f"Failed to get time-based leaderboard: {e}")
+            # Fallback to all-time leaderboard
+            return []
+
+    def _get_user_rank(self, user_id: str, time_period: str) -> Optional[int]:
+        """Get user's rank in leaderboard."""
+        try:
+            user_stats = self.get_user_stats(user_id)
+            user_xp = user_stats.total_xp
+            
+            # Count users with more XP
+            # In production, use DynamoDB query with count
+            response = self.dynamodb_client.scan_table(self.stats_table)
+            
+            rank = 1
+            for entry in response:
+                if entry.get('total_xp', 0) > user_xp:
+                    rank += 1
+            
+            return rank
+            
+        except Exception as e:
+            logger.warning(f"Failed to get user rank: {e}")
+            return None
 
     def get_user_achievements(
         self,

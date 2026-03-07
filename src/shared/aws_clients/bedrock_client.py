@@ -48,6 +48,7 @@ class BedrockClient:
 
         Raises:
             ClientError: If invocation fails
+            ValueError: If response cannot be parsed
         """
         try:
             # Prepare request body based on model family
@@ -65,6 +66,16 @@ class BedrockClient:
                     "temperature": temperature,
                     "topP": top_p,
                 }
+            elif "nova" in model_id.lower():
+                # Amazon Nova format
+                body = {
+                    "messages": [{"role": "user", "content": prompt}],
+                    "inferenceConfig": {
+                        "max_new_tokens": max_tokens,
+                        "temperature": temperature,
+                        "top_p": top_p,
+                    }
+                }
             else:  # Amazon Titan or other models
                 body = {
                     "inputText": prompt,
@@ -78,6 +89,8 @@ class BedrockClient:
             # Add any additional parameters
             body.update(kwargs)
 
+            logger.debug(f"Invoking Bedrock model: {model_id}")
+            
             response = self.client.invoke_model(
                 modelId=model_id,
                 body=json.dumps(body),
@@ -93,23 +106,50 @@ class BedrockClient:
             elif "ai21" in model_id.lower():
                 completions = response_body.get("completions", [])
                 text = completions[0].get("data", {}).get("text", "") if completions else ""
+            elif "nova" in model_id.lower():
+                # Amazon Nova response format
+                output = response_body.get("output", {})
+                message = output.get("message", {})
+                content = message.get("content", [])
+                text = content[0].get("text", "") if content else ""
             else:  # Amazon Titan
                 results = response_body.get("results", [])
                 text = results[0].get("outputText", "") if results else ""
 
-            logger.info(f"Successfully invoked model {model_id}")
+            if not text:
+                logger.error(f"Empty response from Bedrock model {model_id}")
+                raise ValueError(f"Empty response from model {model_id}")
+
+            logger.info(f"Successfully invoked model {model_id} ({len(text)} chars)")
             return text.strip()
 
         except ClientError as e:
-            logger.error(f"Failed to invoke Bedrock model: {e}")
-            raise
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            error_msg = e.response.get('Error', {}).get('Message', str(e))
+            logger.error(f"Bedrock API error ({error_code}): {error_msg}")
+            
+            # Provide helpful error messages
+            if error_code == 'AccessDeniedException':
+                raise ValueError("Access denied to Bedrock. Check IAM permissions for bedrock:InvokeModel")
+            elif error_code == 'ResourceNotFoundException':
+                raise ValueError(f"Model not found: {model_id}. Check model ID and region")
+            elif error_code == 'ThrottlingException':
+                raise ValueError("Bedrock API rate limit exceeded. Please try again later")
+            else:
+                raise ValueError(f"Bedrock error: {error_msg}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse Bedrock response: {e}")
+            raise ValueError("Invalid JSON response from Bedrock")
+        except Exception as e:
+            logger.error(f"Unexpected error invoking Bedrock: {e}", exc_info=True)
+            raise ValueError(f"Failed to invoke Bedrock model: {str(e)}")
 
     def invoke_claude(
         self,
         prompt: str,
         max_tokens: int = 2048,
         temperature: float = 0.7,
-        model_version: str = "3-5-sonnet-20240620-v1:0",
+        model_version: str = "sonnet-4-6",
     ) -> str:
         """
         Convenience method to invoke Claude models.
@@ -118,12 +158,17 @@ class BedrockClient:
             prompt: Input prompt
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature
-            model_version: Claude model version (3-5-sonnet-20240620-v1:0, 3-sonnet-20240229-v1:0)
+            model_version: Claude model version (sonnet-4-6 for latest, opus-4-6-v1, haiku-4-5-20251001-v1:0)
 
         Returns:
             Generated text response
         """
-        model_id = f"anthropic.claude-{model_version}"
+        # For Claude 4.x models, use inference profile
+        if model_version in ["sonnet-4-6", "opus-4-6-v1"]:
+            model_id = f"us.anthropic.claude-{model_version}"
+        else:
+            model_id = f"anthropic.claude-{model_version}"
+        
         return self.invoke_model(
             model_id=model_id,
             prompt=prompt,

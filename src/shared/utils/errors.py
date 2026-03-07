@@ -442,3 +442,7 @@ class ServiceCommunicationError(AILearningAssistantError):
             error_code="SERVICE_COMMUNICATION_ERROR",
             details=error_details,
         )
+
+
+# Alias for backward compatibility
+ServiceError = ServiceCommunicationError
