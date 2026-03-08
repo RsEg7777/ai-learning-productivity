@@ -56,6 +56,24 @@ class TextProcessingHandler:
                     "content parameter is required",
                 )
 
+            # DEMO MODE: Return pre-generated summary if Bedrock is unavailable
+            if os.getenv("DEMO_MODE") == "true":
+                logger.info("Demo mode enabled - returning sample text processing")
+                return self._success_response(200, {
+                    "content_id": "demo-content-123",
+                    "summary": f"Summary: {content[:100]}..." if len(content) > 100 else content,
+                    "key_points": [
+                        "Key point 1 from the content",
+                        "Key point 2 from the content",
+                        "Key point 3 from the content"
+                    ],
+                    "concepts": [
+                        {"name": "Main Concept", "description": "Primary topic discussed in the content"}
+                    ],
+                    "language": language,
+                    "processing_time": 0.5
+                })
+
             logger.info(f"Processing text: language={language}, summary_type={summary_type}")
 
             # Process text

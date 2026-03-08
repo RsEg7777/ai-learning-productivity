@@ -45,6 +45,24 @@ class QuizHandler:
                     "Either content_id or content parameter is required",
                 )
 
+            # DEMO MODE: Return pre-generated flashcards if Bedrock is unavailable
+            if os.getenv("DEMO_MODE") == "true":
+                logger.info("Demo mode enabled - returning sample flashcards")
+                demo_flashcards = [
+                    {
+                        "id": f"fc{i+1}",
+                        "question": f"Sample question {i+1} about {content_text or 'the topic'}?",
+                        "answer": f"This is the answer to question {i+1}. It provides clear explanation.",
+                        "difficulty": "medium",
+                        "tags": ["demo", "sample"]
+                    }
+                    for i in range(min(count, 5))
+                ]
+                return self._success_response(200, {
+                    "flashcards": demo_flashcards,
+                    "count": len(demo_flashcards)
+                })
+
             logger.info(f"Generating flashcards: content_id={content_id}, count={count}")
 
             flashcards = self.flashcard_generator.generate_flashcards(
@@ -97,6 +115,28 @@ class QuizHandler:
                     "MISSING_PARAMETER",
                     "content or topic parameter is required",
                 )
+
+            # DEMO MODE: Return pre-generated quiz if Bedrock is unavailable
+            import os
+            if os.getenv("DEMO_MODE") == "true":
+                logger.info("Demo mode enabled - returning sample quiz")
+                demo_questions = [
+                    {
+                        "id": f"q{i+1}",
+                        "type": "multiple_choice",
+                        "text": f"Sample question {i+1} about {content_input}?",
+                        "options": ["Option A", "Option B", "Option C", "Option D"],
+                        "points": 10
+                    }
+                    for i in range(min(question_count, 5))
+                ]
+                return self._success_response(200, {
+                    "quiz_id": "demo-quiz-123",
+                    "title": f"Quiz: {content_input}",
+                    "questions": demo_questions,
+                    "time_limit": 600,
+                    "passing_score": 70
+                })
 
             logger.info(f"Generating quiz: type={quiz_type}, questions={question_count}")
 

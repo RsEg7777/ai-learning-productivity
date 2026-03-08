@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from typing import Dict, Any, Optional
 
 from ..services.code_analysis.code_analyzer import CodeAnalyzer
@@ -51,6 +52,28 @@ class CodeAnalysisHandler:
                     "MISSING_PARAMETER",
                     "code parameter is required",
                 )
+
+            # DEMO MODE: Return pre-generated analysis if Bedrock is unavailable
+            if os.getenv("DEMO_MODE") == "true":
+                logger.info("Demo mode enabled - returning sample code analysis")
+                return self._success_response(200, {
+                    "explanation": "This code demonstrates basic programming concepts. It's well-structured and follows good practices.",
+                    "line_by_line_analysis": [],
+                    "improvements": [
+                        {
+                            "type": "documentation",
+                            "description": "Add docstrings to explain what the code does",
+                            "suggested_code": "# Add comments here",
+                            "priority": "medium"
+                        }
+                    ],
+                    "issues": [],
+                    "complexity": {
+                        "cyclomatic_complexity": 2,
+                        "cognitive_complexity": 1,
+                        "lines_of_code": len(code.split('\n'))
+                    }
+                })
 
             logger.info(f"Analyzing code: language={language}")
 
