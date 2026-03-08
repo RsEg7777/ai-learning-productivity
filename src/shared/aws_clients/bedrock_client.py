@@ -149,22 +149,25 @@ class BedrockClient:
         prompt: str,
         max_tokens: int = 2048,
         temperature: float = 0.7,
-        model_version: str = "sonnet-4-6",
+        model_version: str = "nova-pro-v1:0",
     ) -> str:
         """
-        Convenience method to invoke Claude models.
+        Convenience method to invoke AI models (now defaults to Amazon Nova).
 
         Args:
             prompt: Input prompt
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature
-            model_version: Claude model version (sonnet-4-6 for latest, opus-4-6-v1, haiku-4-5-20251001-v1:0)
+            model_version: Model version (nova-pro-v1:0 for Amazon Nova, or Claude versions)
 
         Returns:
             Generated text response
         """
+        # Use Amazon Nova by default (available in ap-south-1)
+        if "nova" in model_version:
+            model_id = f"amazon.{model_version}"
         # For Claude 4.x models, use inference profile
-        if model_version in ["sonnet-4-6", "opus-4-6-v1"]:
+        elif model_version in ["sonnet-4-6", "opus-4-6-v1"]:
             model_id = f"us.anthropic.claude-{model_version}"
         else:
             model_id = f"anthropic.claude-{model_version}"
@@ -289,8 +292,10 @@ Include:
             Generated text response
         """
         try:
-            # Use Claude 4 Sonnet with vision capabilities
-            if model_version in ["sonnet-4-6", "opus-4-6-v1"]:
+            # Use Amazon Nova with vision (if available) or Claude
+            if "nova" in model_version:
+                model_id = f"amazon.{model_version}"
+            elif model_version in ["sonnet-4-6", "opus-4-6-v1"]:
                 model_id = f"us.anthropic.claude-{model_version}"
             else:
                 model_id = f"anthropic.claude-{model_version}"

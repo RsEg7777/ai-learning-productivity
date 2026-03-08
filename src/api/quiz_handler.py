@@ -86,15 +86,16 @@ class QuizHandler:
         try:
             body = self._parse_body(event)
             
-            content_input = body.get("content")
+            # Accept both 'content' and 'topic' for compatibility
+            content_input = body.get("content") or body.get("topic")
             quiz_type = body.get("quiz_type", "mixed")
-            question_count = body.get("question_count", 10)
+            question_count = body.get("question_count") or body.get("num_questions", 10)
 
             if not content_input:
                 return self._error_response(
                     400,
                     "MISSING_PARAMETER",
-                    "content parameter is required",
+                    "content or topic parameter is required",
                 )
 
             logger.info(f"Generating quiz: type={quiz_type}, questions={question_count}")
