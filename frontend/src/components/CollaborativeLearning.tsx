@@ -44,13 +44,47 @@ const CollaborativeLearning: React.FC<CollaborativeLearningProps> = ({ authToken
 
   const loadAvailableRooms = async () => {
     try {
-      const response = await fetch(`${API_URL}/collaborative/rooms`, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRooms(data.rooms || []);
+      // Try API first, fallback to demo mode
+      if (API_URL) {
+        try {
+          const response = await fetch(`${API_URL}/collaborative/rooms`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setRooms(data.rooms || []);
+            return;
+          }
+        } catch (apiError) {
+          console.log('API unavailable, using demo rooms');
+        }
       }
+      
+      // Demo mode fallback
+      setRooms([
+        {
+          id: 'demo-1',
+          name: 'Python Study Group',
+          topic: 'Python Programming',
+          participants: 3,
+          maxParticipants: 10,
+          difficulty: 'intermediate',
+          aiModeratorActive: true,
+          createdBy: 'Demo User',
+          tags: ['python', 'programming', 'beginner-friendly']
+        },
+        {
+          id: 'demo-2',
+          name: 'Web Development',
+          topic: 'React & JavaScript',
+          participants: 5,
+          maxParticipants: 8,
+          difficulty: 'intermediate',
+          aiModeratorActive: true,
+          createdBy: 'Demo User',
+          tags: ['react', 'javascript', 'web']
+        }
+      ]);
     } catch (error) {
       console.error('Error loading rooms:', error);
     }
@@ -61,22 +95,49 @@ const CollaborativeLearning: React.FC<CollaborativeLearningProps> = ({ authToken
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/collaborative/create-room`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(newRoom)
-      });
+      // Try API first, fallback to demo mode
+      let roomData: any = null;
+      
+      if (API_URL) {
+        try {
+          const response = await fetch(`${API_URL}/collaborative/create-room`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(newRoom)
+          });
 
-      if (response.ok) {
-        const data = await response.json();
-        setRooms([...rooms, data.room]);
-        setShowCreateRoom(false);
-        setNewRoom({ name: '', topic: '', difficulty: 'medium', maxParticipants: 10 });
-        joinRoom(data.room.id);
+          if (response.ok) {
+            roomData = await response.json();
+          }
+        } catch (apiError) {
+          console.log('API unavailable, creating demo room');
+        }
       }
+      
+      // Demo mode fallback
+      if (!roomData) {
+        roomData = {
+          room: {
+            id: 'demo-' + Date.now(),
+            name: newRoom.name,
+            topic: newRoom.topic,
+            participants: 1,
+            maxParticipants: newRoom.maxParticipants,
+            difficulty: newRoom.difficulty,
+            aiModeratorActive: true,
+            createdBy: 'You',
+            tags: [newRoom.topic.toLowerCase()]
+          }
+        };
+      }
+
+      setRooms([...rooms, roomData.room]);
+      setShowCreateRoom(false);
+      setNewRoom({ name: '', topic: '', difficulty: 'medium', maxParticipants: 10 });
+      joinRoom(roomData.room.id);
     } catch (error) {
       console.error('Error creating room:', error);
     }
@@ -86,30 +147,56 @@ const CollaborativeLearning: React.FC<CollaborativeLearningProps> = ({ authToken
   const joinRoom = async (roomId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/collaborative/join-room`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ roomId })
-      });
+      // Try API first, fallback to demo mode
+      let roomData: any = null;
+      
+      if (API_URL && !roomId.startsWith('demo-')) {
+        try {
+          const response = await fetch(`${API_URL}/collaborative/join-room`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ roomId })
+          });
 
-      if (response.ok) {
-        const data = await response.json();
-        setCurrentRoom(data.room);
-        setParticipants(data.participants);
-        setMessages(data.recentMessages || []);
-        
-        // AI moderator welcome message
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          sender: 'AI Moderator',
-          content: `Welcome to "${data.room.name}"! 🤖\n\nI'm your AI moderator. I'll help facilitate discussions, answer questions, and provide insights. Let's learn together!`,
-          type: 'system',
-          timestamp: new Date().toISOString()
-        }]);
+          if (response.ok) {
+            roomData = await response.json();
+          }
+        } catch (apiError) {
+          console.log('API unavailable, using demo room');
+        }
       }
+      
+      // Demo mode fallback
+      if (!roomData) {
+        const room = rooms.find(r => r.id === roomId);
+        roomData = {
+          room: room,
+          participants: [
+            { id: '1', name: 'You', avatar: '👤', isActive: true, contributionScore: 0 },
+            { id: '2', name: 'Alex', avatar: '👨‍💻', isActive: true, contributionScore: 85 },
+            { id: '3', name: 'Sarah', avatar: '👩‍💻', isActive: true, contributionScore: 92 }
+          ],
+          recentMessages: [
+            { id: '1', sender: 'AI Moderator', content: `Welcome to ${room?.name}! I'm here to facilitate your learning.`, type: 'system', timestamp: new Date().toISOString() }
+          ]
+        };
+      }
+
+      setCurrentRoom(roomData.room);
+      setParticipants(roomData.participants);
+      setMessages(roomData.recentMessages || []);
+        
+      // AI moderator welcome message
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        sender: 'AI Moderator',
+        content: `Welcome to "${roomData.room.name}"! 🤖\n\nI'm your AI moderator. I'll help facilitate discussions, answer questions, and provide insights. Let's learn together!`,
+        type: 'system',
+        timestamp: new Date().toISOString()
+      }]);
     } catch (error) {
       console.error('Error joining room:', error);
     }

@@ -138,36 +138,55 @@ const AIStudyBuddy: React.FC<AIStudyBuddyProps> = ({ authToken }) => {
 
     const newMessages = [...chatMessages, { role: 'user', content: userInput }];
     setChatMessages(newMessages);
+    const currentInput = userInput;
     setUserInput('');
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/study-buddy/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          message: userInput,
-          context: {
-            learningGoals: learningGoals,
-            learningStyle: learningStyle,
-            currentSession: currentSession
+      // Try API first, fallback to demo mode
+      let responseData = null;
+      
+      if (API_URL) {
+        try {
+          const response = await fetch(`${API_URL}/study-buddy/chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+              message: currentInput,
+              context: {
+                learningGoals: learningGoals,
+                learningStyle: learningStyle,
+                currentSession: currentSession
+              }
+            })
+          });
+
+          if (response.ok) {
+            responseData = await response.json();
           }
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setChatMessages([...newMessages, {
-          role: 'assistant',
-          content: data.response
-        }]);
-
-        if (data.recommendation) {
-          setAiInsight(data.recommendation);
+        } catch (apiError) {
+          console.log('API unavailable, using demo mode');
         }
+      }
+      
+      // Demo mode fallback
+      if (!responseData) {
+        responseData = {
+          response: generateStudyBuddyResponse(currentInput, learningGoals, learningStyle),
+          recommendation: `💡 Tip: Focus on ${learningStyle} learning methods for better retention!`
+        };
+      }
+
+      setChatMessages([...newMessages, {
+        role: 'assistant',
+        content: responseData.response
+      }]);
+
+      if (responseData.recommendation) {
+        setAiInsight(responseData.recommendation);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -177,6 +196,20 @@ const AIStudyBuddy: React.FC<AIStudyBuddyProps> = ({ authToken }) => {
       }]);
     }
     setLoading(false);
+  };
+
+  const generateStudyBuddyResponse = (message: string, goals: LearningGoal[], style: string): string => {
+    const lowerMsg = message.toLowerCase();
+    
+    if (lowerMsg.includes('help') || lowerMsg.includes('stuck')) {
+      return `I'm here to help! Let's break this down together. Based on your ${style} learning style, I recommend:\n\n• Take it step by step\n• Use ${style === 'visual' ? 'diagrams and charts' : style === 'auditory' ? 'discussions and explanations' : 'hands-on practice'}\n• Review your progress regularly\n\nWhat specific area would you like to focus on?`;
+    } else if (lowerMsg.includes('goal') || lowerMsg.includes('plan')) {
+      return `Great thinking! Setting clear goals is key to success. ${goals.length > 0 ? `I see you have ${goals.length} goal(s) already.` : 'Let\'s create your first learning goal!'}\n\nFor effective learning:\n1. Set specific, measurable goals\n2. Break them into smaller milestones\n3. Track your progress regularly\n\nWould you like to add a new goal or work on existing ones?`;
+    } else if (lowerMsg.includes('study') || lowerMsg.includes('learn')) {
+      return `Excellent! Let's optimize your study approach. For ${style} learners, I recommend:\n\n• ${style === 'visual' ? 'Use mind maps, flashcards, and color coding' : style === 'auditory' ? 'Record lectures, discuss topics, use mnemonics' : 'Practice problems, build projects, hands-on exercises'}\n• Take regular breaks (Pomodoro technique)\n• Review material within 24 hours\n\nWhat topic are you studying today?`;
+    } else {
+      return `That's interesting! I'm ${buddyName}, your AI study companion. I'm here to help you learn effectively using your ${style} learning style.\n\nI can help you:\n• Create and track learning goals\n• Suggest study strategies\n• Generate personalized study paths\n• Keep you motivated\n\nWhat would you like to work on?`;
+    }
   };
 
   const startAdaptiveSession = async (goalId: string) => {
@@ -213,30 +246,114 @@ const AIStudyBuddy: React.FC<AIStudyBuddyProps> = ({ authToken }) => {
     if (!pathForm.topic) return;
     setPathLoading(true);
     try {
-      const response = await fetch(`${API_URL}/study-buddy/generate-smart-path`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          topic: pathForm.topic,
-          currentLevel: pathForm.currentLevel,
-          targetLevel: pathForm.targetLevel,
-          availableHoursPerWeek: pathForm.hoursPerWeek,
-          learningStyle: learningStyle,
-          knownTopics: pathForm.knownTopics ? pathForm.knownTopics.split(',').map((t: string) => t.trim()).filter(Boolean) : []
-        })
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setStudyPath(data.studyPath);
-        setShowPathForm(false);
+      // Try API first, fallback to demo mode
+      let pathData = null;
+      
+      if (API_URL) {
+        try {
+          const response = await fetch(`${API_URL}/study-buddy/generate-smart-path`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+              topic: pathForm.topic,
+              currentLevel: pathForm.currentLevel,
+              targetLevel: pathForm.targetLevel,
+              availableHoursPerWeek: pathForm.hoursPerWeek,
+              learningStyle: learningStyle,
+              knownTopics: pathForm.knownTopics ? pathForm.knownTopics.split(',').map((t: string) => t.trim()).filter(Boolean) : []
+            })
+          });
+          if (response.ok) {
+            pathData = await response.json();
+          }
+        } catch (apiError) {
+          console.log('API unavailable, using demo study path');
+        }
       }
+      
+      // Demo mode fallback
+      if (!pathData) {
+        pathData = {
+          studyPath: generateDemoStudyPath(pathForm.topic, pathForm.currentLevel, pathForm.targetLevel, pathForm.hoursPerWeek)
+        };
+      }
+      
+      setStudyPath(pathData.studyPath);
+      setShowPathForm(false);
     } catch (error) {
       console.error('Error generating study path:', error);
     }
     setPathLoading(false);
+  };
+
+  const generateDemoStudyPath = (topic: string, currentLevel: string, targetLevel: string, hoursPerWeek: number): SmartStudyPath => {
+    const weeks = Math.ceil(12 * (targetLevel === 'advanced' ? 1.5 : 1));
+    return {
+      skillGapAnalysis: {
+        currentSkills: [`Basic ${topic} knowledge`, 'Fundamental concepts'],
+        targetSkills: [`Advanced ${topic} mastery`, 'Real-world application', 'Best practices'],
+        gaps: ['Intermediate concepts', 'Practical experience', 'Advanced techniques']
+      },
+      modules: [
+        {
+          id: 1,
+          title: `Introduction to ${topic}`,
+          description: `Learn the fundamentals of ${topic} and build a strong foundation`,
+          difficulty: 'beginner',
+          estimatedHours: 10,
+          prerequisites: [],
+          topics: ['Basics', 'Core concepts', 'Getting started'],
+          learningObjectives: [`Understand ${topic} fundamentals`, 'Set up development environment', 'Write first programs'],
+          resources: [
+            { type: 'video', title: 'Introduction Course', description: 'Comprehensive video tutorial' },
+            { type: 'article', title: 'Getting Started Guide', description: 'Step-by-step written guide' }
+          ],
+          assessment: 'Quiz and hands-on project'
+        },
+        {
+          id: 2,
+          title: `Intermediate ${topic}`,
+          description: `Dive deeper into ${topic} concepts and patterns`,
+          difficulty: 'intermediate',
+          estimatedHours: 15,
+          prerequisites: [1],
+          topics: ['Advanced concepts', 'Design patterns', 'Best practices'],
+          learningObjectives: ['Master intermediate concepts', 'Apply design patterns', 'Build complex projects'],
+          resources: [
+            { type: 'video', title: 'Advanced Techniques', description: 'In-depth video series' },
+            { type: 'project', title: 'Real-world Project', description: 'Build a complete application' }
+          ],
+          assessment: 'Capstone project'
+        },
+        {
+          id: 3,
+          title: `Advanced ${topic} & Real-world Applications`,
+          description: `Master advanced techniques and build production-ready applications`,
+          difficulty: 'advanced',
+          estimatedHours: 20,
+          prerequisites: [1, 2],
+          topics: ['Performance optimization', 'Architecture', 'Production deployment'],
+          learningObjectives: ['Optimize for production', 'Design scalable systems', 'Deploy applications'],
+          resources: [
+            { type: 'video', title: 'Expert Masterclass', description: 'Advanced techniques from experts' },
+            { type: 'project', title: 'Portfolio Project', description: 'Build a showcase project' }
+          ],
+          assessment: 'Final portfolio project'
+        }
+      ],
+      weeklySchedule: [
+        { week: 1, focus: 'Fundamentals', modules: [1], hoursPlanned: hoursPerWeek, milestone: 'Complete basics' },
+        { week: 2, focus: 'Core Concepts', modules: [1], hoursPlanned: hoursPerWeek, milestone: 'First project' },
+        { week: 3, focus: 'Intermediate Topics', modules: [2], hoursPlanned: hoursPerWeek, milestone: 'Advanced concepts' },
+        { week: 4, focus: 'Advanced Techniques', modules: [2, 3], hoursPlanned: hoursPerWeek, milestone: 'Capstone project' }
+      ],
+      totalEstimatedWeeks: weeks,
+      dailyRecommendation: `Study for ${Math.floor(hoursPerWeek / 5)} hours daily, focusing on ${learningStyle} learning methods`,
+      motivationalTip: `You're on track to master ${topic}! Stay consistent and practice daily.`
+    };
   };
 
   const getDifficultyColor = (diff: string) => {
