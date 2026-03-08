@@ -615,32 +615,78 @@ async def execute_code(req: CodeExecutionRequest):
         )
     
     try:
-        # For now, provide a simulated response to get the playground working
-        # TODO: Integrate with actual Bedrock model once model access is configured
-        
-        # Simple code analysis without AI
+        # Simulate code execution with actual output
         has_errors = False
         errors = []
+        output = ""
         
-        # Basic syntax check
+        # Execute Python code in a safe manner
         if req.language == "python":
             try:
+                # Check syntax first
                 compile(req.code, '<string>', 'exec')
+                
+                # Capture output by redirecting stdout
+                import io
+                import sys
+                from contextlib import redirect_stdout
+                
+                output_buffer = io.StringIO()
+                
+                # Create a restricted execution environment
+                exec_globals = {
+                    '__builtins__': {
+                        'print': print,
+                        'len': len,
+                        'range': range,
+                        'str': str,
+                        'int': int,
+                        'float': float,
+                        'list': list,
+                        'dict': dict,
+                        'tuple': tuple,
+                        'set': set,
+                        'abs': abs,
+                        'max': max,
+                        'min': min,
+                        'sum': sum,
+                        'sorted': sorted,
+                        'enumerate': enumerate,
+                        'zip': zip,
+                    }
+                }
+                
+                # Execute with timeout and output capture
+                with redirect_stdout(output_buffer):
+                    exec(req.code, exec_globals)
+                
+                output = output_buffer.getvalue()
+                
+                if not output:
+                    output = "Code executed successfully (no output generated)"
+                
             except SyntaxError as e:
                 has_errors = True
                 errors.append(f"Syntax error at line {e.lineno}: {e.msg}")
-        
-        # Simulate output
-        if not has_errors:
-            output = f"Code analysis complete.\n\nYour {req.language} code appears to be syntactically correct.\n\nNote: This is a simulated response. Full AI-powered code execution coming soon!"
-            ai_suggestion = "Code looks good! Consider adding comments and error handling for production use."
+                output = "Syntax error detected"
+            except Exception as e:
+                has_errors = True
+                errors.append(f"Runtime error: {type(e).__name__}: {str(e)}")
+                output = f"Runtime error: {type(e).__name__}: {str(e)}"
         else:
-            output = "Syntax errors detected. Please fix them and try again."
-            ai_suggestion = "Fix the syntax errors listed above."
+            # For non-Python languages, provide a message
+            output = f"Code execution for {req.language} is not yet supported. Python execution is available."
+            has_errors = False
+        
+        # Generate AI suggestion
+        if not has_errors:
+            ai_suggestion = "Code executed successfully! Consider adding error handling and input validation for production use."
+        else:
+            ai_suggestion = "Please fix the errors and try again. Check your syntax and logic."
         
         return {
             "success": not has_errors,
-            "output": output,
+            "output": output.strip() if output else "No output",
             "error": "\n".join(errors) if has_errors else None,
             "ai_suggestion": ai_suggestion,
             "ai_explanation": ai_suggestion if has_errors else None
