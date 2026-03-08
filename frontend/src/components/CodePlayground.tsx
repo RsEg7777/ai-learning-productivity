@@ -355,9 +355,7 @@ const CodePlayground: React.FC<CodePlaygroundProps> = ({ authToken }) => {
           </motion.div>
         )}
 
-        {output && (
-              fontWeight: '600',
-        {output && (
+      {output && (
           <div style={{
             background: 'var(--bg-darker)',
             border: '1px solid var(--border)',

@@ -21,6 +21,7 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
   const [loading, setLoading] = useState(false);
   const [subject, setSubject] = useState('');
   const [teachingStyle, setTeachingStyle] = useState('socratic');
+  const [language, setLanguage] = useState('english');
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -113,6 +114,7 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
           question: question,
           include_examples: true,
           use_socratic_method: teachingStyle === 'socratic',
+          language: language,
         }),
       });
 
@@ -195,6 +197,29 @@ const AITutorChat: React.FC<AITutorChatProps> = ({ authToken }) => {
               <option value="socratic">Socratic (Guiding Questions)</option>
               <option value="direct">Direct (Clear Explanations)</option>
               <option value="exploratory">Exploratory (Discovery-Based)</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>🌍 Response Language (Bharat Languages):</label>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              <option value="english">English</option>
+              <option value="hindi">हिन्दी (Hindi)</option>
+              <option value="hinglish">Hinglish (Hindi + English)</option>
+              <option value="tamil">தமிழ் (Tamil)</option>
+              <option value="tanglish">Tanglish (Tamil + English)</option>
+              <option value="telugu">తెలుగు (Telugu)</option>
+              <option value="bengali">বাংলা (Bengali)</option>
+              <option value="marathi">मराठी (Marathi)</option>
+              <option value="gujarati">ગુજરાતી (Gujarati)</option>
+              <option value="kannada">ಕನ್ನಡ (Kannada)</option>
+              <option value="malayalam">മലയാളം (Malayalam)</option>
+              <option value="punjabi">ਪੰਜਾਬੀ (Punjabi)</option>
+              <option value="odia">ଓଡ଼ିଆ (Odia)</option>
+              <option value="urdu">اردو (Urdu)</option>
+              <option value="assamese">অসমীয়া (Assamese)</option>
             </select>
           </div>
         </div>

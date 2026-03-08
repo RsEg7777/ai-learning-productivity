@@ -32,46 +32,53 @@ const GamificationDashboard: React.FC<GamificationDashboardProps> = ({ authToken
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getMockStats = (): UserStats => ({
-    xp: 2750,
-    level: 5,
-    streak: 7,
-    leaderboard_rank: 12,
-    achievements: [
-      { id: '1', name: 'First Steps', description: 'Complete your first lesson', icon: '🎯', unlocked: true },
-      { id: '2', name: 'Quiz Whiz', description: 'Score 100% on 5 quizzes', icon: '🧠', unlocked: true, progress: 5, max_progress: 5 },
-      { id: '3', name: 'Code Ninja', description: 'Analyze 20 code snippets', icon: '🥷', unlocked: true, progress: 20, max_progress: 20 },
-      { id: '4', name: 'Streak Master', description: 'Maintain a 7-day streak', icon: '🔥', unlocked: true, progress: 7, max_progress: 7 },
-      { id: '5', name: 'Night Owl', description: 'Study after midnight', icon: '🦉', unlocked: true },
-      { id: '6', name: 'Flashcard Fanatic', description: 'Create 50 flashcards', icon: '🎴', unlocked: false, progress: 32, max_progress: 50 },
-      { id: '7', name: 'Polyglot', description: 'Study 5 different subjects', icon: '🌍', unlocked: false, progress: 3, max_progress: 5 },
-      { id: '8', name: 'Speed Learner', description: 'Complete 10 lessons in one day', icon: '⚡', unlocked: false, progress: 6, max_progress: 10 },
-    ],
-  });
+  const [error, setError] = useState('');
 
   const fetchStats = async () => {
     const apiUrl = process.env.REACT_APP_API_URL || '';
     if (!apiUrl) {
-      setStats(getMockStats());
+      setError('API URL not configured.');
       setLoading(false);
       return;
     }
     try {
-      const response = await fetch(`${apiUrl}/gamification/stats/user123`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
+      // Fetch stats and achievements in parallel
+      const [statsRes, achievementsRes] = await Promise.all([
+        fetch(`${apiUrl}/gamification/stats/user123`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        }),
+        fetch(`${apiUrl}/gamification/achievements/user123?include_locked=true`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        })
+      ]);
 
-      const data = await response.json();
-      if (data.success) {
-        setStats(data.stats);
+      const statsData = await statsRes.json();
+      const achievementsData = await achievementsRes.json();
+
+      if (statsData.success && statsData.stats) {
+        const achievements = (achievementsData.achievements || []).map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          description: a.description,
+          icon: a.icon || '🏅',
+          unlocked: a.unlocked,
+          progress: a.progress,
+          max_progress: a.max_progress,
+        }));
+
+        setStats({
+          xp: statsData.stats.total_xp || 0,
+          level: statsData.stats.level || 1,
+          streak: statsData.stats.current_streak || 0,
+          leaderboard_rank: 0,
+          achievements: achievements,
+        });
       } else {
-        setStats(getMockStats());
+        setError('Failed to load gamification data. Backend may not be fully initialized.');
       }
-    } catch (error) {
-      console.error('Failed to fetch stats, using mock data:', error);
-      setStats(getMockStats());
+    } catch (err: any) {
+      console.error('Failed to fetch stats:', err);
+      setError('Failed to load stats. Please ensure the backend is running.');
     } finally {
       setLoading(false);
     }
@@ -88,6 +95,18 @@ const GamificationDashboard: React.FC<GamificationDashboardProps> = ({ authToken
           ⚡
         </motion.div>
         <p>Loading your stats...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ textAlign: 'center', padding: '3rem' }}>
+        <p style={{ color: '#ef4444' }}>⚠️ {error}</p>
+        <button onClick={() => { setError(''); setLoading(true); fetchStats(); }} 
+          style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: 'var(--primary)', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer' }}>
+          Retry
+        </button>
       </div>
     );
   }

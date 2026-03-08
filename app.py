@@ -108,11 +108,14 @@ class AskQuestionRequest(BaseModel):
     question: str
     include_examples: bool = True
     use_socratic_method: bool = True
+    language: str = "english"  # Supports Indian languages: hindi, tamil, telugu, bengali, marathi, etc.
 
 
 class QuizRequest(BaseModel):
-    topic: str
+    topic: Optional[str] = None
+    content: Optional[str] = None
     num_questions: int = 5
+    question_count: Optional[int] = None
     difficulty: str = "medium"
 
 
@@ -203,6 +206,60 @@ async def ask_question(req: AskQuestionRequest):
             use_socratic_method=req.use_socratic_method
         )
         
+        # Multilingual support: translate response if non-English language requested
+        target_lang = req.language.lower().strip()
+        if target_lang != "english" and response.get("answer"):
+            try:
+                from src.shared.aws_clients.bedrock_client import BedrockClient
+                bedrock_client = BedrockClient(region=AWS_REGION)
+                
+                lang_names = {
+                    "hindi": "Hindi (हिन्दी)", "tamil": "Tamil (தமிழ்)",
+                    "telugu": "Telugu (తెలుగు)", "bengali": "Bengali (বাংলা)",
+                    "marathi": "Marathi (मराठी)", "gujarati": "Gujarati (ગુજરાતી)",
+                    "kannada": "Kannada (ಕನ್ನಡ)", "malayalam": "Malayalam (മലയാളം)",
+                    "punjabi": "Punjabi (ਪੰਜਾਬੀ)", "odia": "Odia (ଓଡ଼ିଆ)",
+                    "urdu": "Urdu (اردو)", "assamese": "Assamese (অসমীয়া)",
+                    "hinglish": "Hinglish (Hindi + English mixed)",
+                    "tanglish": "Tanglish (Tamil + English mixed)",
+                }
+                lang_display = lang_names.get(target_lang, target_lang.capitalize())
+                
+                translate_prompt = f"""Translate the following educational text to {lang_display}.
+Keep technical terms in English but explain them in {lang_display}.
+Preserve the teaching tone and structure. Keep code examples as-is.
+
+Text to translate:
+{response['answer']}
+
+Translated text:"""
+                translated = bedrock_client.invoke_model(
+                    model_id="us.amazon.nova-pro-v1:0",
+                    prompt=translate_prompt,
+                    max_tokens=2000,
+                    temperature=0.3,
+                )
+                response["answer"] = translated.strip()
+                response["language"] = target_lang
+                
+                # Also translate follow-up questions
+                if response.get("follow_up_questions"):
+                    fq_text = "\n".join([f"{i+1}. {q}" for i, q in enumerate(response["follow_up_questions"])])
+                    fq_prompt = f"Translate these questions to {lang_display}. Return only the translated questions, one per line:\n{fq_text}"
+                    fq_translated = bedrock_client.invoke_model(
+                        model_id="us.amazon.nova-pro-v1:0",
+                        prompt=fq_prompt,
+                        max_tokens=500,
+                        temperature=0.3,
+                    )
+                    translated_questions = [q.strip().lstrip('0123456789.)-: ') for q in fq_translated.strip().split('\n') if q.strip()]
+                    if translated_questions:
+                        response["follow_up_questions"] = translated_questions
+            except Exception as translate_err:
+                logger.warning(f"Translation to {target_lang} failed: {translate_err}")
+                response["language"] = "english"
+                response["translation_note"] = f"Translation to {target_lang} unavailable. Showing English response."
+        
         return {
             "success": True,
             **response
@@ -223,11 +280,14 @@ async def generate_quiz(req: QuizRequest):
         )
     
     try:
-        # Generate quiz from topic text
+        # Accept both 'content' and 'topic' fields from frontend
+        quiz_content = req.content or req.topic or "General Knowledge"
+        num_q = req.question_count or req.num_questions
+        
         quiz = quiz_service.generate_quiz(
-            content=f"Topic: {req.topic}\n\nGenerate questions about {req.topic} at {req.difficulty} difficulty level.",
-            title=f"Quiz: {req.topic}",
-            question_count=req.num_questions
+            content=quiz_content,
+            title=f"Quiz: {quiz_content[:60]}",
+            question_count=num_q
         )
         
         return {
@@ -926,19 +986,37 @@ Format as JSON:
     "studyTechniques": ["technique1", "technique2"]
 }}"""
         
-        response = bedrock_client.invoke_claude(prompt)
+        response = bedrock_client.invoke_model(
+            model_id="us.amazon.nova-pro-v1:0",
+            prompt=prompt,
+            max_tokens=1500,
+            temperature=0.7,
+        )
         
         import json
+        import re as _re
         try:
+            # Try parsing full response as JSON first
             ai_plan = json.loads(response)
         except:
-            ai_plan = {
-                "milestones": [
-                    {"title": "Getting Started", "description": "Foundation concepts", "estimatedHours": 5}
-                ],
-                "recommendation": "Start with the basics and build progressively",
-                "studyTechniques": ["Active recall", "Spaced repetition"]
-            }
+            # Try extracting JSON from response
+            json_match = _re.search(r'\{.*\}', response, _re.DOTALL)
+            if json_match:
+                try:
+                    ai_plan = json.loads(json_match.group(0))
+                except:
+                    ai_plan = None
+            else:
+                ai_plan = None
+            
+            if not ai_plan:
+                ai_plan = {
+                    "milestones": [
+                        {"title": "Getting Started", "description": "Foundation concepts", "estimatedHours": 5}
+                    ],
+                    "recommendation": response[:500],
+                    "studyTechniques": ["Active recall", "Spaced repetition"]
+                }
         
         goal = {
             "id": f"goal_{datetime.utcnow().timestamp()}",
@@ -999,12 +1077,30 @@ Provide a helpful, personalized response that:
 
 Keep responses conversational and supportive."""
         
-        response = bedrock_client.invoke_claude(prompt, temperature=0.8)
+        response = bedrock_client.invoke_model(
+            model_id="us.amazon.nova-pro-v1:0",
+            prompt=prompt,
+            max_tokens=1000,
+            temperature=0.8,
+        )
         
-        # Generate smart recommendations
+        # Use AI to generate contextual recommendation
         recommendation = None
-        if any(word in req.message.lower() for word in ['stuck', 'difficult', 'hard', 'confused']):
-            recommendation = "Try breaking this down into smaller steps. Would you like me to create a mini-lesson?"
+        rec_prompt = f"""Based on this student message: "{req.message}"
+And the AI tutor's response, generate ONE short (1-2 sentence) actionable study recommendation.
+If the student seems confident and doesn't need extra help, return ONLY the word "none".
+Otherwise, return ONLY the recommendation text, no JSON."""
+        try:
+            rec_response = bedrock_client.invoke_model(
+                model_id="us.amazon.nova-pro-v1:0",
+                prompt=rec_prompt,
+                max_tokens=100,
+                temperature=0.5,
+            )
+            if rec_response.strip().lower() != "none" and len(rec_response.strip()) > 10:
+                recommendation = rec_response.strip()
+        except Exception:
+            pass
         
         return {
             "success": True,
@@ -1043,7 +1139,12 @@ Provide:
 
 Format as JSON with session details."""
         
-        response = bedrock_client.invoke_claude(prompt)
+        response = bedrock_client.invoke_model(
+            model_id="us.amazon.nova-pro-v1:0",
+            prompt=prompt,
+            max_tokens=1000,
+            temperature=0.7,
+        )
         
         return {
             "success": True,
@@ -1068,40 +1169,18 @@ class CreateRoomRequest(BaseModel):
     maxParticipants: int = 10
 
 
+# In-memory room storage for the hackathon demo
+_active_rooms: Dict[str, Any] = {}
+
+
 @app.get("/collaborative/rooms")
 async def get_study_rooms():
     """Get available collaborative study rooms."""
     try:
-        # In production, fetch from database
-        # For now, return sample rooms
-        sample_rooms = [
-            {
-                "id": "room_1",
-                "name": "React Hooks Deep Dive",
-                "topic": "React Hooks",
-                "participants": 3,
-                "maxParticipants": 10,
-                "difficulty": "intermediate",
-                "aiModeratorActive": True,
-                "createdBy": "user123",
-                "tags": ["react", "javascript", "frontend"]
-            },
-            {
-                "id": "room_2",
-                "name": "Data Structures Study Group",
-                "topic": "Data Structures & Algorithms",
-                "participants": 5,
-                "maxParticipants": 15,
-                "difficulty": "advanced",
-                "aiModeratorActive": True,
-                "createdBy": "user456",
-                "tags": ["algorithms", "computer-science"]
-            }
-        ]
-        
+        rooms = list(_active_rooms.values())
         return {
             "success": True,
-            "rooms": sample_rooms
+            "rooms": rooms
         }
     except Exception as e:
         logger.error(f"Error getting rooms: {e}", exc_info=True)
@@ -1110,10 +1189,33 @@ async def get_study_rooms():
 
 @app.post("/collaborative/create-room")
 async def create_study_room(req: CreateRoomRequest):
-    """Create a new collaborative study room."""
+    """Create a new collaborative study room with AI-generated tags."""
     try:
+        room_id = f"room_{int(datetime.utcnow().timestamp())}"
+        
+        # Use AI to generate relevant tags for the room topic
+        tags = [word.strip().lower() for word in req.topic.split() if len(word.strip()) > 2][:5]
+        if services_initialized:
+            try:
+                from src.shared.aws_clients.bedrock_client import BedrockClient
+                bedrock_client = BedrockClient(region=AWS_REGION)
+                tag_prompt = f"Generate 3-5 relevant short tags (single words) for a study room about: {req.topic}. Return ONLY a JSON array of strings like [\"tag1\", \"tag2\"]."
+                tag_response = bedrock_client.invoke_model(
+                    model_id="us.amazon.nova-pro-v1:0",
+                    prompt=tag_prompt,
+                    max_tokens=100,
+                    temperature=0.3,
+                )
+                import json as json_mod
+                import re as re_mod
+                json_match = re_mod.search(r'\[.*?\]', tag_response, re_mod.DOTALL)
+                if json_match:
+                    tags = json_mod.loads(json_match.group(0))
+            except Exception as tag_err:
+                logger.warning(f"AI tag generation failed, using defaults: {tag_err}")
+        
         room = {
-            "id": f"room_{datetime.utcnow().timestamp()}",
+            "id": room_id,
             "name": req.name,
             "topic": req.topic,
             "participants": 1,
@@ -1121,8 +1223,11 @@ async def create_study_room(req: CreateRoomRequest):
             "difficulty": req.difficulty,
             "aiModeratorActive": True,
             "createdBy": "user123",
-            "tags": req.topic.lower().split()
+            "tags": tags
         }
+        
+        # Store room in memory
+        _active_rooms[room_id] = room
         
         return {
             "success": True,
@@ -1135,29 +1240,188 @@ async def create_study_room(req: CreateRoomRequest):
 
 @app.post("/collaborative/join-room")
 async def join_study_room(request: dict):
-    """Join a collaborative study room."""
+    """Join a collaborative study room with AI-generated welcome."""
     try:
         room_id = request.get('roomId')
         
-        # Sample participants
+        # Get room data from storage
+        room_data = _active_rooms.get(room_id, {
+            "id": room_id,
+            "name": "Study Room",
+            "topic": "General Learning"
+        })
+        
         participants = [
-            {"id": "1", "name": "Alice", "avatar": "👩", "isActive": True, "contributionScore": 150},
-            {"id": "2", "name": "Bob", "avatar": "👨", "isActive": True, "contributionScore": 120},
-            {"id": "3", "name": "You", "avatar": "😊", "isActive": True, "contributionScore": 0}
+            {"id": "you", "name": "You", "avatar": "😊", "isActive": True, "contributionScore": 0}
         ]
+        
+        # Generate AI welcome message with room context
+        welcome_messages = []
+        if services_initialized:
+            try:
+                from src.shared.aws_clients.bedrock_client import BedrockClient
+                bedrock_client = BedrockClient(region=AWS_REGION)
+                welcome_prompt = f"""You are an AI moderator for a collaborative study room.
+Room topic: {room_data.get('topic', 'General')}
+Difficulty: {room_data.get('difficulty', 'medium')}
+
+Generate a brief, engaging welcome message (2-3 sentences) that:
+1. Welcomes the student to the room
+2. Introduces the topic they'll be studying
+3. Suggests a discussion starter question related to the topic
+
+Be friendly and encouraging. Do NOT use JSON format, just write the message directly."""
+                ai_welcome = bedrock_client.invoke_model(
+                    model_id="us.amazon.nova-pro-v1:0",
+                    prompt=welcome_prompt,
+                    max_tokens=300,
+                    temperature=0.7,
+                )
+                welcome_messages.append({
+                    "id": "welcome_1",
+                    "sender": "AI Moderator",
+                    "content": ai_welcome.strip(),
+                    "type": "system",
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+            except Exception as ai_err:
+                logger.warning(f"AI welcome generation failed: {ai_err}")
         
         return {
             "success": True,
             "room": {
-                "id": room_id,
-                "name": "Study Room",
-                "topic": "Learning Together"
+                "id": room_data.get("id", room_id),
+                "name": room_data.get("name", "Study Room"),
+                "topic": room_data.get("topic", "General Learning")
             },
             "participants": participants,
-            "recentMessages": []
+            "recentMessages": welcome_messages
         }
     except Exception as e:
         logger.error(f"Error joining room: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SmartStudyPathRequest(BaseModel):
+    topic: str
+    currentLevel: str = "beginner"  # beginner, intermediate, advanced
+    targetLevel: str = "advanced"
+    availableHoursPerWeek: int = 10
+    learningStyle: str = "visual"
+    knownTopics: list = []
+
+
+@app.post("/study-buddy/generate-smart-path")
+async def generate_smart_study_path(req: SmartStudyPathRequest):
+    """Generate an AI-powered smart study path with skill gap analysis.
+    
+    This is a unique feature that provides:
+    - Skill gap analysis between current and target level
+    - Prerequisite mapping
+    - Weekly schedule with adaptive difficulty
+    - Resource recommendations per module
+    - Progress milestones with estimated completion times
+    """
+    if not services_initialized:
+        raise HTTPException(status_code=503, detail="Study path service not available")
+    
+    try:
+        from src.shared.aws_clients.bedrock_client import BedrockClient
+        import json
+        import re as _re_sp
+        
+        bedrock_client = BedrockClient(region=AWS_REGION)
+        
+        known_str = ", ".join(req.knownTopics) if req.knownTopics else "None specified"
+        
+        prompt = f"""You are an expert learning path architect. Create a comprehensive, personalized smart study path.
+
+Student Profile:
+- Topic: {req.topic}
+- Current Level: {req.currentLevel}
+- Target Level: {req.targetLevel}
+- Available Hours/Week: {req.availableHoursPerWeek}
+- Learning Style: {req.learningStyle}
+- Already Knows: {known_str}
+
+Generate a detailed study path as JSON:
+{{
+    "skillGapAnalysis": {{
+        "currentSkills": ["skills the student likely has at {req.currentLevel} level"],
+        "targetSkills": ["skills needed for {req.targetLevel} level"],
+        "gaps": ["specific skill gaps to address"]
+    }},
+    "modules": [
+        {{
+            "id": 1,
+            "title": "Module Title",
+            "description": "What this module covers",
+            "difficulty": "beginner|intermediate|advanced",
+            "estimatedHours": 5,
+            "prerequisites": [],
+            "topics": ["topic1", "topic2"],
+            "learningObjectives": ["By the end, you will..."],
+            "resources": [{{"type": "video|article|practice|project", "title": "Resource name", "description": "Why this helps"}}],
+            "assessment": "How to verify mastery"
+        }}
+    ],
+    "weeklySchedule": [
+        {{
+            "week": 1,
+            "focus": "What to focus on",
+            "modules": [1],
+            "hoursPlanned": 10,
+            "milestone": "What you should achieve by end of week"
+        }}
+    ],
+    "totalEstimatedWeeks": 8,
+    "dailyRecommendation": "Personalized daily study routine based on {req.learningStyle} learning style",
+    "motivationalTip": "An encouraging, personalized message"
+}}
+
+IMPORTANT: Generate 5-8 modules that progressively build skills. Create a realistic weekly schedule. Tailor everything to the {req.learningStyle} learning style."""
+        
+        response = bedrock_client.invoke_model(
+            model_id="us.amazon.nova-pro-v1:0",
+            prompt=prompt,
+            max_tokens=3000,
+            temperature=0.7,
+        )
+        
+        try:
+            study_path = json.loads(response)
+        except:
+            json_match = _re_sp.search(r'\{.*\}', response, _re_sp.DOTALL)
+            if json_match:
+                try:
+                    study_path = json.loads(json_match.group(0))
+                except:
+                    study_path = None
+            else:
+                study_path = None
+        
+        if not study_path:
+            study_path = {
+                "skillGapAnalysis": {
+                    "currentSkills": [f"Basic {req.topic} understanding"],
+                    "targetSkills": [f"Advanced {req.topic} mastery"],
+                    "gaps": [f"Intermediate {req.topic} concepts"]
+                },
+                "modules": [
+                    {"id": 1, "title": f"Foundations of {req.topic}", "description": "Core concepts", "difficulty": "beginner", "estimatedHours": 5, "prerequisites": [], "topics": [req.topic], "learningObjectives": [f"Understand {req.topic} fundamentals"], "resources": [], "assessment": "Complete practice exercises"}
+                ],
+                "weeklySchedule": [{"week": 1, "focus": "Foundations", "modules": [1], "hoursPlanned": req.availableHoursPerWeek, "milestone": "Complete fundamentals"}],
+                "totalEstimatedWeeks": 8,
+                "dailyRecommendation": response[:500] if response else "Study consistently for best results.",
+                "motivationalTip": "Every expert was once a beginner. Keep going!"
+            }
+        
+        return {
+            "success": True,
+            "studyPath": study_path
+        }
+    except Exception as e:
+        logger.error(f"Error generating smart study path: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1188,16 +1452,31 @@ Determine if you should:
 
 If responding, keep it brief and helpful. If not needed, return empty response."""
         
-        ai_response_text = bedrock_client.invoke_claude(prompt, max_tokens=500, temperature=0.7)
+        ai_response_text = bedrock_client.invoke_model(
+            model_id="us.amazon.nova-pro-v1:0",
+            prompt=prompt,
+            max_tokens=500,
+            temperature=0.7,
+        )
         
-        # Generate smart suggestions for follow-up
+        # Generate AI-powered discussion suggestions
         suggestions = []
-        if '?' in message:
-            suggestions = [
-                "Can you elaborate on that?",
-                "What's your understanding so far?",
-                "Let's break this down together"
-            ]
+        try:
+            suggestion_prompt = f"""Given this student discussion message: "{message}"
+Generate 3 short follow-up discussion prompts (each under 10 words) that encourage deeper learning.
+Return ONLY a JSON array of strings like ["prompt1", "prompt2", "prompt3"]."""
+            suggestion_response = bedrock_client.invoke_model(
+                model_id="us.amazon.nova-pro-v1:0",
+                prompt=suggestion_prompt,
+                max_tokens=150,
+                temperature=0.7,
+            )
+            import re as _re2
+            json_match = _re2.search(r'\[.*?\]', suggestion_response, _re2.DOTALL)
+            if json_match:
+                suggestions = json.loads(json_match.group(0))
+        except Exception:
+            suggestions = []
         
         ai_response = ai_response_text.strip() if len(ai_response_text.strip()) > 20 else None
         
