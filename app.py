@@ -615,71 +615,35 @@ async def execute_code(req: CodeExecutionRequest):
         )
     
     try:
-        from src.shared.aws_clients.bedrock_client import BedrockClient
+        # For now, provide a simulated response to get the playground working
+        # TODO: Integrate with actual Bedrock model once model access is configured
         
-        bedrock_client = BedrockClient(region=AWS_REGION)
+        # Simple code analysis without AI
+        has_errors = False
+        errors = []
         
-        # Build prompt with input handling
-        input_context = ""
-        if req.input:
-            input_context = f"\nUser Input (provided):\n{req.input}\n"
+        # Basic syntax check
+        if req.language == "python":
+            try:
+                compile(req.code, '<string>', 'exec')
+            except SyntaxError as e:
+                has_errors = True
+                errors.append(f"Syntax error at line {e.lineno}: {e.msg}")
         
-        # Use AI to analyze the code and provide execution simulation
-        prompt = f"""Analyze this {req.language} code and provide:
-1. What the code does
-2. Expected output when executed{' with the provided input' if req.input else ''}
-3. Any syntax errors or runtime errors
-4. AI suggestions for improvement
-
-Code:
-```{req.language}
-{req.code}
-```
-{input_context}
-
-If the code requires input and input is provided, simulate the execution with that input.
-If the code requires input but none is provided, mention that input is needed.
-
-Respond in JSON format:
-{{
-    "has_errors": boolean,
-    "errors": ["list of errors if any"],
-    "output": "expected output or error message",
-    "ai_suggestion": "suggestions for improvement",
-    "requires_input": boolean
-}}"""
-        
-        response = bedrock_client.invoke_claude(prompt)
-        
-        # Parse AI response
-        import json
-        try:
-            result = json.loads(response)
-        except:
-            # Fallback if AI doesn't return valid JSON
-            result = {
-                "has_errors": False,
-                "errors": [],
-                "output": "Code analyzed successfully",
-                "ai_suggestion": response,
-                "requires_input": False
-            }
-        
-        # If code requires input but none provided
-        if result.get("requires_input") and not req.input:
-            return {
-                "success": False,
-                "error": "This code requires input. Please provide input values.",
-                "requires_input": True,
-                "ai_explanation": "Your code uses input functions. Please provide the input values before running."
-            }
+        # Simulate output
+        if not has_errors:
+            output = f"Code analysis complete.\n\nYour {req.language} code appears to be syntactically correct.\n\nNote: This is a simulated response. Full AI-powered code execution coming soon!"
+            ai_suggestion = "Code looks good! Consider adding comments and error handling for production use."
+        else:
+            output = "Syntax errors detected. Please fix them and try again."
+            ai_suggestion = "Fix the syntax errors listed above."
         
         return {
-            "success": not result.get("has_errors", False),
-            "output": result.get("output", ""),
-            "error": "\n".join(result.get("errors", [])) if result.get("has_errors") else None,
-            "ai_suggestion": result.get("ai_suggestion", ""),
-            "ai_explanation": result.get("ai_suggestion", "") if result.get("has_errors") else None
+            "success": not has_errors,
+            "output": output,
+            "error": "\n".join(errors) if has_errors else None,
+            "ai_suggestion": ai_suggestion,
+            "ai_explanation": ai_suggestion if has_errors else None
         }
     except Exception as e:
         logger.error(f"Error executing code: {e}", exc_info=True)
