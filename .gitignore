@@ -78,3 +78,11 @@ package-lock.json
 *.tmp
 *.bak
 .temp/
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local
+
+# Old CRA backup
+frontend_cra_backup/

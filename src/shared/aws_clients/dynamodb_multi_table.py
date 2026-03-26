@@ -133,3 +133,21 @@ class DynamoDBMultiTableClient:
         except ClientError as e:
             logger.error(f"Failed to scan table: {e}")
             raise
+
+    def query_items(self, table_name: str, key_conditions: dict) -> list:
+        """Query items matching key conditions (simple equality scan fallback)."""
+        try:
+            from boto3.dynamodb.conditions import Attr
+            table = self._get_table(table_name)
+            filter_expr = None
+            for k, v in key_conditions.items():
+                cond = Attr(k).eq(v)
+                filter_expr = cond if filter_expr is None else filter_expr & cond
+            if filter_expr:
+                resp = table.scan(FilterExpression=filter_expr)
+            else:
+                resp = table.scan()
+            return resp.get("Items", [])
+        except ClientError as e:
+            logger.error(f"query_items error: {e}")
+            return []

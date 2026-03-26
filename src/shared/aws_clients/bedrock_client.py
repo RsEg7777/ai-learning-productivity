@@ -1,27 +1,33 @@
-"""Amazon Bedrock client for generative AI."""
+"""Amazon Bedrock client — production-grade, no fallbacks."""
 
 import json
 import logging
-from typing import Any, Dict, Optional
+import os
+from typing import Any, Optional
+
 import boto3
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
+# Model IDs — configurable via env, defaults to Nova Pro
+NOVA_PRO_MODEL = os.getenv("BEDROCK_MODEL_ID", "amazon.nova-pro-v1:0")
+NOVA_LITE_MODEL = os.getenv("BEDROCK_LITE_MODEL_ID", "amazon.nova-lite-v1:0")
+# For vision tasks use Claude Sonnet 3.5 v2 (multimodal)
+VISION_MODEL = os.getenv("BEDROCK_VISION_MODEL_ID", "us.anthropic.claude-3-5-sonnet-20241022-v2:0")
+
 
 class BedrockClient:
-    """Client for Amazon Bedrock operations."""
+    """Production Amazon Bedrock client — always calls real AWS."""
 
     def __init__(self, region: Optional[str] = None) -> None:
-        """
-        Initialize Bedrock client.
-
-        Args:
-            region: AWS region (optional)
-        """
-        self.region = region or "us-east-1"
+        self.region = region or os.getenv("AWS_REGION", "ap-south-1")
         self.client = boto3.client("bedrock-runtime", region_name=self.region)
-        logger.info(f"Initialized BedrockClient in region: {self.region}")
+        logger.info(f"BedrockClient initialised → region={self.region}, model={NOVA_PRO_MODEL}")
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Core invocation
+    # ──────────────────────────────────────────────────────────────────────────
 
     def invoke_model(
         self,
@@ -30,53 +36,39 @@ class BedrockClient:
         max_tokens: int = 2048,
         temperature: float = 0.7,
         top_p: float = 0.9,
+        system_prompt: Optional[str] = None,
         **kwargs: Any,
     ) -> str:
-        """
-        Invoke a Bedrock model for text generation.
-
-        Args:
-            model_id: Bedrock model identifier
-            prompt: Input prompt
-            max_tokens: Maximum tokens to generate
-            temperature: Sampling temperature
-            top_p: Top-p sampling parameter
-            **kwargs: Additional model-specific parameters
-
-        Returns:
-            Generated text response
-
-        Raises:
-            ClientError: If invocation fails
-            ValueError: If response cannot be parsed
-        """
+        """Invoke a Bedrock model and return the generated text."""
         try:
-            # Prepare request body based on model family
-            if "anthropic" in model_id.lower():
+            body: dict
+
+            if "nova" in model_id.lower() or "amazon" in model_id.lower() and "nova" in model_id.lower():
+                messages = [{"role": "user", "content": [{"text": prompt}]}]
                 body = {
-                    "prompt": f"\n\nHuman: {prompt}\n\nAssistant:",
-                    "max_tokens_to_sample": max_tokens,
-                    "temperature": temperature,
-                    "top_p": top_p,
-                }
-            elif "ai21" in model_id.lower():
-                body = {
-                    "prompt": prompt,
-                    "maxTokens": max_tokens,
-                    "temperature": temperature,
-                    "topP": top_p,
-                }
-            elif "nova" in model_id.lower():
-                # Amazon Nova format
-                body = {
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": messages,
                     "inferenceConfig": {
                         "max_new_tokens": max_tokens,
                         "temperature": temperature,
                         "top_p": top_p,
-                    }
+                    },
                 }
-            else:  # Amazon Titan or other models
+                if system_prompt:
+                    body["system"] = [{"text": system_prompt}]
+
+            elif "anthropic" in model_id.lower():
+                messages = [{"role": "user", "content": prompt}]
+                body = {
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "messages": messages,
+                }
+                if system_prompt:
+                    body["system"] = system_prompt
+
+            elif "titan" in model_id.lower():
                 body = {
                     "inputText": prompt,
                     "textGenerationConfig": {
@@ -85,64 +77,96 @@ class BedrockClient:
                         "topP": top_p,
                     },
                 }
+            else:
+                # Generic Converse API fallback for other models
+                body = {
+                    "messages": [{"role": "user", "content": [{"text": prompt}]}],
+                    "inferenceConfig": {
+                        "maxTokens": max_tokens,
+                        "temperature": temperature,
+                        "topP": top_p,
+                    },
+                }
 
-            # Add any additional parameters
-            body.update(kwargs)
-
-            logger.debug(f"Invoking Bedrock model: {model_id}")
-            
             response = self.client.invoke_model(
                 modelId=model_id,
                 body=json.dumps(body),
                 contentType="application/json",
                 accept="application/json",
             )
-
             response_body = json.loads(response["body"].read())
-
-            # Extract text based on model family
-            if "anthropic" in model_id.lower():
-                text = response_body.get("completion", "")
-            elif "ai21" in model_id.lower():
-                completions = response_body.get("completions", [])
-                text = completions[0].get("data", {}).get("text", "") if completions else ""
-            elif "nova" in model_id.lower():
-                # Amazon Nova response format
-                output = response_body.get("output", {})
-                message = output.get("message", {})
-                content = message.get("content", [])
-                text = content[0].get("text", "") if content else ""
-            else:  # Amazon Titan
-                results = response_body.get("results", [])
-                text = results[0].get("outputText", "") if results else ""
-
-            if not text:
-                logger.error(f"Empty response from Bedrock model {model_id}")
-                raise ValueError(f"Empty response from model {model_id}")
-
-            logger.info(f"Successfully invoked model {model_id} ({len(text)} chars)")
-            return text.strip()
+            text = self._extract_text(model_id, response_body)
+            logger.debug(f"Bedrock {model_id} → {len(text)} chars")
+            return text
 
         except ClientError as e:
-            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
-            error_msg = e.response.get('Error', {}).get('Message', str(e))
-            logger.error(f"Bedrock API error ({error_code}): {error_msg}")
-            
-            # Provide helpful error messages
-            if error_code == 'AccessDeniedException':
-                raise ValueError("Access denied to Bedrock. Check IAM permissions for bedrock:InvokeModel")
-            elif error_code == 'ResourceNotFoundException':
-                raise ValueError(f"Model not found: {model_id}. Check model ID and region")
-            elif error_code == 'ThrottlingException':
-                raise ValueError("Bedrock API rate limit exceeded. Please try again later")
-            else:
-                raise ValueError(f"Bedrock error: {error_msg}")
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse Bedrock response: {e}")
-            raise ValueError("Invalid JSON response from Bedrock")
+            code = e.response["Error"]["Code"]
+            msg = e.response["Error"]["Message"]
+            logger.error(f"Bedrock ClientError {code}: {msg}")
+            if code == "AccessDeniedException":
+                raise ValueError(f"Bedrock access denied — check IAM permissions. Model: {model_id}")
+            if code == "ResourceNotFoundException":
+                raise ValueError(f"Bedrock model not found: {model_id}. Check model ID and region.")
+            if code == "ThrottlingException":
+                raise ValueError("Bedrock rate limit hit — retry later.")
+            if code == "ValidationException":
+                raise ValueError(f"Bedrock validation error: {msg}")
+            raise ValueError(f"Bedrock error ({code}): {msg}")
+
         except Exception as e:
-            logger.error(f"Unexpected error invoking Bedrock: {e}", exc_info=True)
-            raise ValueError(f"Failed to invoke Bedrock model: {str(e)}")
+            logger.error(f"Bedrock unexpected error: {e}", exc_info=True)
+            raise ValueError(f"Bedrock invocation failed: {str(e)}")
+
+    def _extract_text(self, model_id: str, body: dict) -> str:
+        """Extract text from Bedrock response based on model family."""
+        if "nova" in model_id.lower():
+            # Amazon Nova response format
+            output = body.get("output", {})
+            message = output.get("message", {})
+            content = message.get("content", [])
+            text = content[0].get("text", "") if content else ""
+
+        elif "anthropic" in model_id.lower():
+            content = body.get("content", [])
+            text = content[0].get("text", "") if content else body.get("completion", "")
+
+        elif "titan" in model_id.lower():
+            results = body.get("results", [])
+            text = results[0].get("outputText", "") if results else ""
+
+        else:
+            # Try common response shapes
+            output = body.get("output", {})
+            if output:
+                message = output.get("message", {})
+                content = message.get("content", [])
+                text = content[0].get("text", "") if content else str(output)
+            else:
+                text = str(body)
+
+        if not text:
+            raise ValueError(f"Empty response from model {model_id}. Body: {body}")
+        return text.strip()
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Convenience wrappers
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def invoke_nova(
+        self,
+        prompt: str,
+        max_tokens: int = 2048,
+        temperature: float = 0.7,
+        system_prompt: Optional[str] = None,
+    ) -> str:
+        """Invoke Amazon Nova Pro (primary model)."""
+        return self.invoke_model(
+            model_id=NOVA_PRO_MODEL,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            system_prompt=system_prompt,
+        )
 
     def invoke_claude(
         self,
@@ -151,157 +175,30 @@ class BedrockClient:
         temperature: float = 0.7,
         model_version: str = "nova-pro-v1:0",
     ) -> str:
-        """
-        Convenience method to invoke AI models (now defaults to Amazon Nova).
-
-        Args:
-            prompt: Input prompt
-            max_tokens: Maximum tokens to generate
-            temperature: Sampling temperature
-            model_version: Model version (nova-pro-v1:0 for Amazon Nova, or Claude versions)
-
-        Returns:
-            Generated text response
-        """
-        # Use Amazon Nova by default (available in ap-south-1)
+        """Backward-compatible wrapper — defaults to Nova Pro."""
         if "nova" in model_version:
             model_id = f"amazon.{model_version}"
-        # For Claude 4.x models, use inference profile
-        elif model_version in ["sonnet-4-6", "opus-4-6-v1"]:
-            model_id = f"us.anthropic.claude-{model_version}"
+        elif model_version.startswith("us.") or model_version.startswith("ap.") or model_version.startswith("eu."):
+            model_id = model_version
         else:
             model_id = f"anthropic.claude-{model_version}"
-        
-        return self.invoke_model(
-            model_id=model_id,
-            prompt=prompt,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-
-    def invoke_titan(
-        self,
-        prompt: str,
-        max_tokens: int = 2048,
-        temperature: float = 0.7,
-    ) -> str:
-        """
-        Convenience method to invoke Amazon Titan models.
-
-        Args:
-            prompt: Input prompt
-            max_tokens: Maximum tokens to generate
-            temperature: Sampling temperature
-
-        Returns:
-            Generated text response
-        """
-        model_id = "amazon.titan-text-premier-v1:0"
-        return self.invoke_model(
-            model_id=model_id,
-            prompt=prompt,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-
-    def generate_summary(
-        self,
-        text: str,
-        summary_type: str = "brief",
-        max_tokens: int = 1024,
-    ) -> str:
-        """
-        Generate a summary of the given text.
-
-        Args:
-            text: Text to summarize
-            summary_type: Type of summary (brief, detailed, hierarchical)
-            max_tokens: Maximum tokens for summary
-
-        Returns:
-            Generated summary
-        """
-        if summary_type == "hierarchical":
-            prompt = f"""Please create a hierarchical summary of the following text with main points and sub-points:
-
-{text}
-
-Format the summary with clear hierarchy using bullet points and indentation."""
-        elif summary_type == "detailed":
-            prompt = f"""Please create a detailed summary of the following text, preserving important details and technical terms:
-
-{text}"""
-        else:  # brief
-            prompt = f"""Please create a brief, concise summary of the following text:
-
-{text}"""
-
-        return self.invoke_claude(prompt=prompt, max_tokens=max_tokens, temperature=0.5)
-
-    def explain_code(
-        self,
-        code: str,
-        language: str,
-        include_line_by_line: bool = True,
-    ) -> str:
-        """
-        Generate an explanation of code.
-
-        Args:
-            code: Code to explain
-            language: Programming language
-            include_line_by_line: Whether to include line-by-line analysis
-
-        Returns:
-            Code explanation
-        """
-        analysis_type = "line-by-line analysis" if include_line_by_line else "overview"
-        prompt = f"""Please provide a {analysis_type} explanation of the following {language} code:
-
-```{language}
-{code}
-```
-
-Include:
-1. Overall purpose and functionality
-2. {"Line-by-line breakdown" if include_line_by_line else "Key components"}
-3. Important concepts and patterns used
-4. Potential improvements or issues"""
-
-        return self.invoke_claude(prompt=prompt, max_tokens=2048, temperature=0.3)
+        return self.invoke_model(model_id=model_id, prompt=prompt,
+                                  max_tokens=max_tokens, temperature=temperature)
 
     def invoke_claude_with_image(
         self,
         prompt: str,
         image_base64: str,
+        media_type: str = "image/jpeg",
         max_tokens: int = 2048,
-        temperature: float = 0.7,
-        model_version: str = "sonnet-4-6",
+        temperature: float = 0.3,
     ) -> str:
-        """
-        Invoke Claude with image input for vision tasks.
-
-        Args:
-            prompt: Text prompt
-            image_base64: Base64 encoded image
-            max_tokens: Maximum tokens to generate
-            temperature: Sampling temperature
-            model_version: Claude model version
-
-        Returns:
-            Generated text response
-        """
+        """Invoke Claude Sonnet with vision for image understanding tasks."""
         try:
-            # Use Amazon Nova with vision (if available) or Claude
-            if "nova" in model_version:
-                model_id = f"amazon.{model_version}"
-            elif model_version in ["sonnet-4-6", "opus-4-6-v1"]:
-                model_id = f"us.anthropic.claude-{model_version}"
-            else:
-                model_id = f"anthropic.claude-{model_version}"
-
-            # Prepare request body with image
             body = {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": max_tokens,
+                "temperature": temperature,
                 "messages": [
                     {
                         "role": "user",
@@ -310,52 +207,39 @@ Include:
                                 "type": "image",
                                 "source": {
                                     "type": "base64",
-                                    "media_type": "image/jpeg",
-                                    "data": image_base64
-                                }
+                                    "media_type": media_type,
+                                    "data": image_base64,
+                                },
                             },
-                            {
-                                "type": "text",
-                                "text": prompt
-                            }
-                        ]
+                            {"type": "text", "text": prompt},
+                        ],
                     }
                 ],
-                "inferenceConfig": {
-                    "max_new_tokens": max_tokens,
-                    "temperature": temperature,
-                }
             }
 
-            logger.debug(f"Invoking Bedrock model with image: {model_id}")
-            
             response = self.client.invoke_model(
-                modelId=model_id,
+                modelId=VISION_MODEL,
                 body=json.dumps(body),
                 contentType="application/json",
                 accept="application/json",
             )
-
             response_body = json.loads(response["body"].read())
-
-            # Extract text from response
-            output = response_body.get("output", {})
-            message = output.get("message", {})
-            content = message.get("content", [])
+            content = response_body.get("content", [])
             text = content[0].get("text", "") if content else ""
-
             if not text:
-                logger.error(f"Empty response from Bedrock model {model_id}")
-                raise ValueError(f"Empty response from model {model_id}")
-
-            logger.info(f"Successfully invoked model {model_id} with image ({len(text)} chars)")
+                raise ValueError("Empty vision response")
             return text.strip()
 
         except ClientError as e:
-            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
-            error_msg = e.response.get('Error', {}).get('Message', str(e))
-            logger.error(f"Bedrock API error ({error_code}): {error_msg}")
-            raise ValueError(f"Bedrock error: {error_msg}")
-        except Exception as e:
-            logger.error(f"Unexpected error invoking Bedrock with image: {e}", exc_info=True)
-            raise ValueError(f"Failed to invoke Bedrock model with image: {str(e)}")
+            code = e.response["Error"]["Code"]
+            msg = e.response["Error"]["Message"]
+            logger.error(f"Vision model error {code}: {msg}")
+            raise ValueError(f"Vision processing failed ({code}): {msg}")
+
+    def generate_summary(self, text: str, summary_type: str = "brief", max_tokens: int = 1024) -> str:
+        prompts = {
+            "brief": f"Provide a concise summary (3-5 sentences) of:\n\n{text}",
+            "detailed": f"Provide a detailed summary preserving key technical details:\n\n{text}",
+            "hierarchical": f"Provide a hierarchical summary with main points and sub-points:\n\n{text}",
+        }
+        return self.invoke_nova(prompts.get(summary_type, prompts["brief"]), max_tokens=max_tokens, temperature=0.4)

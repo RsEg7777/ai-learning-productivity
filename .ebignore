@@ -1,0 +1,61 @@
+# Elastic Beanstalk ignore file
+# Similar to .gitignore — these files won't be included in the EB deployment zip
+
+# Frontend (deployed separately to Vercel)
+frontend/node_modules/
+frontend/build/
+frontend/.env.local
+frontend/.env
+
+# Lambda layer (not needed for EB — only for Lambda deployments)
+lambda-layer/
+
+# Infrastructure CDK
+infrastructure/node_modules/
+infrastructure/cdk.out/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Test files (optional — remove these lines if you want tests in EB)
+tests/
+coverage.xml
+.coverage
+pytest.ini
+
+# Development and docs
+docs/
+examples/
+*.md
+!README.md
+
+# Local config and secrets
+.env
+.env.local
+*.env
+
+# IDEs and OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# PowerShell scripts (Windows only)
+*.ps1
+
+# Log files
+*.log
