@@ -115,3 +115,22 @@ If you'd like, I can:
 
 - Generate a minimal CloudFormation template for the S3 bucket + DynamoDB table + IAM role needed for Transcribe, or
 - Add a `.env.example` file at the repo root with the variable keys shown above.
+
+Remediation checklist (quick)
+-----------------------------
+Use this checklist after provisioning cloud resources and before deploying the app.
+
+- [ ] Create S3 bucket and set `S3_BUCKET_NAME`.
+- [ ] Create DynamoDB table(s) and set `DYNAMODB_TABLE_NAME` (or prefix).
+- [ ] Deploy or confirm Bedrock access and set `BEDROCK_MODEL_ID`.
+- [ ] Create/assign IAM roles (Lambda/EB/ECS task) that allow access to S3, DynamoDB, and Bedrock.
+- [ ] Create Transcribe IAM role and set `TRANSCRIBE_ROLE_ARN`.
+- [ ] Set any Cognito variables (`COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`) if using Cognito.
+- [ ] Review `OUTPUT_PROVIDER` / `ONLY_AWS_OUTPUTS` and set to enforce AWS-only outputs.
+- [ ] Store secrets in Secrets Manager / Parameter Store; do not hardcode creds.
+- [ ] Run `pytest` with `USE_LOCAL_MODELS=true` locally and in CI to validate behavior without live AWS.
+
+CI enforcement
+--------------
+We recommend enabling the included GitHub Actions workflow (`.github/workflows/ci.yml`) which runs tests with `USE_LOCAL_MODELS=true` and will fail if any non-AWS model provider strings are referenced under `src/`.
+
