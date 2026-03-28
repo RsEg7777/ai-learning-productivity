@@ -2,6 +2,7 @@
 
 import logging
 import time
+import os
 from typing import Optional
 import boto3
 from botocore.exceptions import ClientError
@@ -20,8 +21,19 @@ class TranscribeClient:
             region: AWS region (optional)
         """
         self.region = region or "us-east-1"
-        self.client = boto3.client("transcribe", region_name=self.region)
-        logger.info(f"Initialized TranscribeClient in region: {self.region}")
+        # Detect local/mock mode to avoid calling real AWS Transcribe during tests
+        self.local_mode = os.getenv("USE_LOCAL_MODELS", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
+        if not self.local_mode:
+            self.client = boto3.client("transcribe", region_name=self.region)
+            logger.info(f"Initialized TranscribeClient in region: {self.region}")
+        else:
+            self.client = None
+            logger.info("Initialized TranscribeClient in local mock mode (USE_LOCAL_MODELS=true)")
 
     def start_transcription_job(
         self,
@@ -47,6 +59,11 @@ class TranscribeClient:
         Raises:
             ClientError: If job creation fails
         """
+        # In local/mock mode don't call AWS — pretend the job started
+        if self.local_mode:
+            logger.debug(f"(local) start_transcription_job called for {job_name}")
+            return job_name
+
         try:
             params = {
                 "TranscriptionJobName": job_name,
@@ -79,6 +96,14 @@ class TranscribeClient:
         Raises:
             ClientError: If retrieval fails
         """
+        if self.local_mode:
+            # Return a completed, synthetic job structure for tests
+            return {
+                "TranscriptionJobName": job_name,
+                "TranscriptionJobStatus": "COMPLETED",
+                "Transcript": {"TranscriptFileUri": f"local://{job_name}.json"},
+            }
+
         try:
             response = self.client.get_transcription_job(TranscriptionJobName=job_name)
             return response["TranscriptionJob"]
@@ -107,6 +132,10 @@ class TranscribeClient:
             TimeoutError: If job doesn't complete in time
             ClientError: If job fails
         """
+        if self.local_mode:
+            logger.debug(f"(local) wait_for_completion called for {job_name}")
+            return self.get_transcription_job(job_name)
+
         start_time = time.time()
 
         while True:
@@ -142,6 +171,10 @@ class TranscribeClient:
         Raises:
             ClientError: If deletion fails
         """
+        if self.local_mode:
+            logger.debug(f"(local) delete_transcription_job called for {job_name}")
+            return
+
         try:
             self.client.delete_transcription_job(TranscriptionJobName=job_name)
             logger.info(f"Deleted transcription job: {job_name}")
@@ -174,6 +207,13 @@ class TranscribeClient:
         import uuid
         import requests
 
+        # Short-circuit for local/mock mode to avoid calling real AWS Transcribe
+        if self.local_mode:
+            # Return a deterministic synthetic transcript to ease testing
+            synthetic = f"[LOCAL_TRANSCRIPT] simulated transcription for {media_uri}"
+            logger.debug(f"(local) transcribe_audio returning synthetic transcript for {media_uri}")
+            return synthetic
+
         job_name = f"transcribe-{uuid.uuid4()}"
 
         try:
@@ -201,7 +241,7 @@ class TranscribeClient:
 
         finally:
             # Clean up job
-            if wait_for_completion:
+            if wait_for_completion and not self.local_mode:
                 try:
                     self.delete_transcription_job(job_name)
                 except Exception as e:
