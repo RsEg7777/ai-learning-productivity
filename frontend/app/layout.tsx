@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import ApiGuard from '@/components/ApiGuard'
 
 export const metadata: Metadata = {
   title: 'AI Learning Assistant | AWS AI Bharat Hackathon 2026',
@@ -18,7 +19,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <ApiGuard />
+        {children}
+      </body>
     </html>
   )
 }
