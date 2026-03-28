@@ -151,3 +151,39 @@ class DynamoDBMultiTableClient:
         except ClientError as e:
             logger.error(f"query_items error: {e}")
             return []
+
+    # ── Convenience alias used by app.py ────────────────────────────────────
+    def scan(
+        self,
+        table_name: str,
+        filter_expression: Optional[str] = None,
+        expression_values: Optional[Dict[str, Any]] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Scan a table with optional filter. Alias for scan_table."""
+        try:
+            from boto3.dynamodb.conditions import Attr
+            table = self._get_table(table_name)
+            params: Dict[str, Any] = {}
+            if limit:
+                params["Limit"] = limit
+            if filter_expression and expression_values:
+                # Build a combined Attr filter from the expression values
+                filter_expr_obj = None
+                for k, v in expression_values.items():
+                    # Strip the leading colon from placeholder names
+                    attr_name = k.lstrip(":")
+                    cond = Attr(attr_name).eq(v)
+                    filter_expr_obj = cond if filter_expr_obj is None else filter_expr_obj & cond
+                if filter_expr_obj is not None:
+                    params["FilterExpression"] = filter_expr_obj
+            response = table.scan(**params)
+            items = response.get("Items", [])
+            logger.info(f"scan({table_name}) → {len(items)} items")
+            return items
+        except ClientError as e:
+            logger.error(f"scan error on {table_name}: {e}")
+            return []
+        except Exception as e:
+            logger.warning(f"scan fallback on {table_name}: {e}")
+            return []
