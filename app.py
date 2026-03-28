@@ -44,8 +44,8 @@ _active_rooms: Dict[str, Any] = {}
 def get_bedrock():
     global _bedrock
     if _bedrock is None:
-        from src.shared.aws_clients.bedrock_client import BedrockClient
-        _bedrock = BedrockClient(region=AWS_REGION)
+        from src.shared.model_router import ModelRouter
+        _bedrock = ModelRouter(region=AWS_REGION)
     return _bedrock
 
 def get_tutor():

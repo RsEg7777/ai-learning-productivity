@@ -278,6 +278,10 @@ class QuizGenerator:
             List of multiple choice Question objects
         """
         try:
+            # Accept either raw text or a ProcessedContent object
+            if not isinstance(content_text, str):
+                content_text = getattr(content_text, "original_content", str(content_text))
+
             # Prepare content for prompt
             if len(content_text) > 6000:
                 content_text = content_text[:6000]
@@ -353,6 +357,10 @@ Guidelines:
             List of true/false Question objects
         """
         try:
+            # Accept either raw text or a ProcessedContent object
+            if not isinstance(content_text, str):
+                content_text = getattr(content_text, "original_content", str(content_text))
+
             # Prepare content for prompt
             if len(content_text) > 6000:
                 content_text = content_text[:6000]
@@ -423,6 +431,10 @@ Guidelines:
             List of fill-in-blank Question objects
         """
         try:
+            # Accept either raw text or a ProcessedContent object
+            if not isinstance(content_text, str):
+                content_text = getattr(content_text, "original_content", str(content_text))
+
             # Prepare content for prompt
             if len(content_text) > 6000:
                 content_text = content_text[:6000]

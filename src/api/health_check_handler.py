@@ -5,6 +5,11 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
 import os
+from typing import Dict
+
+from src.shared.aws_clients.bedrock_client import BedrockClient
+from src.shared.aws_clients.s3_client import S3Client
+from src.shared.aws_clients.dynamodb_client import DynamoDBClient
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +20,14 @@ class HealthCheckHandler:
     def __init__(self) -> None:
         """Initialize health check handler."""
         logger.info("Initialized HealthCheckHandler")
+        # Try to wire the orchestrator so health checks can inspect service status.
+        try:
+            from src.api.service_orchestrator import get_orchestrator
+
+            self.orchestrator = get_orchestrator()
+        except Exception as e:
+            logger.warning(f"HealthCheckHandler: failed to initialize orchestrator: {e}")
+            self.orchestrator = None
 
     def handle_health_check(self, event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         """
@@ -82,12 +95,16 @@ class HealthCheckHandler:
                 for s in aws_services.values()
             )
 
+            # Include orchestrator-reported service status when available
+            services_status = self.orchestrator.get_service_status() if getattr(self, "orchestrator", None) else {}
+
             health_status = {
                 "status": "healthy" if all_healthy else "degraded",
                 "timestamp": datetime.now().isoformat(),
                 "service": "ai-learning-assistant",
                 "version": "1.0.0",
                 "environment": os.environ.get("ENVIRONMENT", "dev"),
+                "services": services_status.get("services", {}),
                 "aws_services": aws_services,
                 "lambda_context": {
                     "function_name": context.function_name if context else "unknown",
@@ -217,10 +234,9 @@ class HealthCheckHandler:
         """
         aws_services = {}
 
-        # Check Bedrock
+        # Check Bedrock via BedrockClient wrapper
         try:
-            import boto3
-            bedrock_client = boto3.client("bedrock-runtime")
+            bedrock_client = BedrockClient()
             aws_services["bedrock"] = {
                 "status": "healthy",
                 "message": "Bedrock client initialized",
@@ -231,10 +247,9 @@ class HealthCheckHandler:
                 "error": str(e),
             }
 
-        # Check S3
+        # Check S3 via S3Client wrapper
         try:
-            import boto3
-            s3_client = boto3.client("s3")
+            s3_client = S3Client()
             aws_services["s3"] = {
                 "status": "healthy",
                 "message": "S3 client initialized",
@@ -245,10 +260,9 @@ class HealthCheckHandler:
                 "error": str(e),
             }
 
-        # Check DynamoDB
+        # Check DynamoDB via DynamoDBClient wrapper
         try:
-            import boto3
-            dynamodb_client = boto3.client("dynamodb")
+            dynamodb_client = DynamoDBClient()
             aws_services["dynamodb"] = {
                 "status": "healthy",
                 "message": "DynamoDB client initialized",
@@ -284,6 +298,19 @@ class HealthCheckHandler:
                 "ready": False,
                 "error": str(e),
             }
+
+    def _check_orchestrator(self) -> Dict[str, Any]:
+        """Check if the orchestrator and services are ready."""
+        try:
+            if not getattr(self, "orchestrator", None):
+                return {"ready": False, "error": "orchestrator_unavailable"}
+            status = self.orchestrator.get_service_status()
+            # Consider ready if all services report initialized=True
+            services = status.get("services", {})
+            ready = all(s.get("initialized") for s in services.values()) if services else False
+            return {"ready": ready, "status": status}
+        except Exception as e:
+            return {"ready": False, "error": str(e)}
 
     def _success_response(self, status_code: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create success API response."""

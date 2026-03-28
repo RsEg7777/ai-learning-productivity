@@ -198,7 +198,7 @@ Guidelines:
                 # If we didn't get enough, generate additional using simple method
                 additional_needed = count - len(flashcard_data)
                 additional_flashcards = self._generate_simple_flashcards(
-                    content=content,
+                    content=content_text,
                     count=additional_needed,
                 )
                 flashcard_data.extend(additional_flashcards)
@@ -275,7 +275,7 @@ Guidelines:
 
     def _generate_simple_flashcards(
         self,
-        content: ProcessedContent,
+        content: Any,
         count: int,
     ) -> List[Dict[str, Any]]:
         """
@@ -292,6 +292,31 @@ Guidelines:
             List of dictionaries with flashcard data
         """
         flashcards = []
+
+        # If a plain string was provided, construct a minimal ProcessedContent
+        if isinstance(content, str):
+            from ...shared.models.content import Summary, SummaryType
+
+            summary = Summary(
+                id=str(uuid.uuid4()),
+                content_id="fallback",
+                type=SummaryType.BRIEF,
+                text=content[:2000] if len(content) > 2000 else content,
+                key_points=[],
+                hierarchical_structure=[],
+                generated_at=datetime.utcnow(),
+            )
+
+            content = ProcessedContent(
+                id="fallback",
+                original_content=content,
+                summary=summary,
+                key_points=[],
+                concepts=[],
+                language="en",
+                processing_time=0.0,
+                metadata={},
+            )
 
         # Generate from key points
         if content.key_points:

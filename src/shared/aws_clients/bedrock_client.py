@@ -16,6 +16,22 @@ NOVA_LITE_MODEL = os.getenv("BEDROCK_LITE_MODEL_ID", "amazon.nova-lite-v1:0")
 # For vision tasks use Claude Sonnet 3.5 v2 (multimodal)
 VISION_MODEL = os.getenv("BEDROCK_VISION_MODEL_ID", "us.anthropic.claude-3-5-sonnet-20241022-v2:0")
 
+# If the deployment sets ONLY_AWS_OUTPUTS=true we enforce that
+# model IDs are Bedrock-compatible to guarantee outputs come from AWS.
+ONLY_AWS_OUTPUTS = os.getenv("ONLY_AWS_OUTPUTS", "false").lower() in ("1", "true", "yes")
+if ONLY_AWS_OUTPUTS:
+    def _looks_like_bedrock_model(mid: str) -> bool:
+        if not mid:
+            return False
+        m = mid.lower()
+        return any(k in m for k in ("amazon.", "us.amazon", "anthropic", "us.anthropic", "nova", "titan"))
+
+    if not (_looks_like_bedrock_model(NOVA_PRO_MODEL) or _looks_like_bedrock_model(NOVA_LITE_MODEL) or _looks_like_bedrock_model(VISION_MODEL)):
+        raise RuntimeError(
+            "ONLY_AWS_OUTPUTS is set but no Bedrock-compatible model ids found. "
+            "Set BEDROCK_MODEL_ID, BEDROCK_LITE_MODEL_ID or BEDROCK_VISION_MODEL_ID to a Bedrock model id."
+        )
+
 
 class BedrockClient:
     """Production Amazon Bedrock client — always calls real AWS."""
